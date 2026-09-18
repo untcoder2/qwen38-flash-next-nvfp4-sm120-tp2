@@ -1,0 +1,5 @@
+.agent-context.md
+public-repo/
+# артефакты инструментов и бинарники (не для git)
+.playwright-mcp/
+tuner/base.apk
