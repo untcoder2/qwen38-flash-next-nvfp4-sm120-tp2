@@ -13,6 +13,11 @@
 # подключение (ключ уже на месте)
 ssh -i ~/.ssh/molochko_deploy molochko@192.168.2.127
 
+# тулзы на хосте, не на Windows (обёртки; см. AGENTS.md)
+ops/rsh.sh 'nmap -sV <target>'          # команда на хосте, exit-код пробрасывается
+ops/rput.sh ops/_probe.py               # файл -> ~/agent-tools/ на хосте
+ops/rget.sh /home/molochko/agent-tools/out.json   # отчёт оттуда
+
 # состояние
 systemctl is-active sglang && curl -s http://192.168.2.127:1234/v1/models
 

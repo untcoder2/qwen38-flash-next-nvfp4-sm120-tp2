@@ -61,7 +61,7 @@ systemd sglang.service
 | `--mem-fraction-static 0.981` → `0.88` | 0.981 — одноплатное значение; 0.88 наше проверенное |
 | добавлен `--disable-custom-all-reduce` | **без него TP=2 падает**: `RuntimeError: invalid argument` в `get_graph_buffer_ipc_meta` |
 | убран `--hicache-storage-backend nixl` и его конфиг | NIXL не инициализируется, `Failed to create NIXL backend` |
-| `CONTEXT_LENGTH` 524288 → 786432, YaRN `factor` 2.0 → 3.0, добавлен `max_position_embeddings` | вернуть наш контекст |
+| `CONTEXT_LENGTH` 524288 → 786432 → **1048576**, YaRN `factor` 2.0 → 3.0 → **4.0**, `max_position_embeddings` синхронно | вернуть наш контекст; 27.09 поднят до 1M: сервер пропускает запрос только если `input + max_new_tokens + draft-слоты ≤ контекст` (notes 27.09 про 400 на 641K) |
 | `--served-model-name pennyroyal` → `qwen3.8-flash-next` | чтобы opencode не трогать |
 | `--max-mamba-cache-size` 24 → 64 | снять потолок в 4 одновременных запроса; 64 подобрано 17.09 |
 | подменён `chat-template.sh` | вернуть родной шаблон чекпоинта вместо Froggeric |
@@ -70,7 +70,7 @@ systemd sglang.service
 
 ```
 --tp 2 --disable-custom-all-reduce --dtype bfloat16 --quantization modelopt_fp4
---kv-cache-dtype fp8_e4m3 --mem-fraction-static 0.88 --context-length 786432
+--kv-cache-dtype fp8_e4m3 --mem-fraction-static 0.88 --context-length 1048576
 --page-size 64 --max-running-requests 8 --sleep-on-idle --chunked-prefill-size 4096
 --mamba-radix-cache-strategy extra_buffer --mamba-ssm-dtype bfloat16
 --max-mamba-cache-size 64 --gdn-mtp-cache-mode none --mamba-track-interval 256

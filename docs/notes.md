@@ -5,6 +5,78 @@
 
 ---
 
+## 27.09 (позже) — почему «остановка окна» на ~641K при окне 786432: 400 от sglang
+
+Симптом у владельца: сессия на Flash-Next встаёт на ~641K токенов, API 400,
+компакция не спасает. Разобрано по исходникам Pennyroyal v2.5.1 и wire-трейсам.
+
+**Механизм.** Rust-интейк sglang (`rust/sglang-server/src/tokenizer_manager/to_scheduler.rs`,
+`check_total_tokens`) перед допуском запроса требует, чтобы **весь** бюджет влезал в окно:
+`input_len + num_reserved_tokens + max_new_tokens <= context_len (786432)`.
+`num_reserved_tokens` — слоты под драфты MTP (eagle-путь: max(topk*num_steps, draft_tokens)).
+При `allow_auto_truncate=False` (наш запуск, флаг не выставлен) превышение — это **400**,
+а не «отрежем max_new_tokens до остатка». Отсюда «не случайные» 641K:
+`641024 + 145408 = 786432` — клиент запросил генерацию на «остаток» своего окна, сервер
+посчитал input своим токенизатором (чату-темплат, схемы тулзов, thinking в истории —
+реальный input больше клиентского счётчика) и сумма не влезла.
+
+**Почему это фатально:** погибает и `/compact` — запрос суммаризации несёт тот же огромный
+контекст и тоже ловит 400 (в wire старой сессии буквально: «total of 1399782 tokens:
+613350 input + 786432 completion»). Замкнутый круг: сессия не может ни продолжиться,
+ни ужаться.
+
+**Лечение (два независимых рычага):**
+1. Клиентский: занизить `max_context_size` у модели в `~/.kimi-code/config.toml`
+   (786432 → ~680–700K), чтобы авто-компакция срабатывала ДО порога 400. Надёжно, без рестартов.
+2. Серверный: `--allow-auto-truncate` в leaf-скрипт (`tp2-serve-flash-next.sh`) — сервер сам
+   зажмёт max_new_tokens до остатка окна вместо отказа. Внимание: тот же флаг при input ≥
+   контекста молчаtruncate вход — для агентов это палка о двух концах; рестарт прода только
+   по спросу с владельцем (см. правило выше).
+
+**Проверено:** 400-ы в `docker logs penny` идут с 192.168.2.189 (этот десктоп, Kimi Code.exe);
+запросы с input 646–649K при этом проходят, если бюджет генерации маленький — т.е. дело не в
+«сломанных 768K», а в формуле input+max_new ≤ window.
+
+**Исполнено 27.09 (вечер).** Владелец выбрал «лучше миллион»: leaf-скрипт
+`/home/molochko/penny/tp2-serve-flash-next.sh` — `CONTEXT_LENGTH=1048576`,
+`max_position_embeddings=1048576`, YaRN `factor=4.0` (original 262144 × 4); бэкап
+`*.bak-ctx1m-20260927-*`. Рестарт прошёл: 22:14:36 unit restart, 22:18:26 READY
+(~230 с), `.maintenance` снят, NRestarts=0. verify.py (6 гейтов): функциональные
+PASS (template_400, effort low=629/xhigh=5457, accept медиана 2.16, retract 0 n=161);
+FAIL только сверка со старым манифестом mf092 (context_length и хеш скрипта —
+ожидаемо). Новый снапшот: `20260927-222108--ctx1m-20260927`, пин
+`rollback:keep-ctx1m-20260927`. Клиенты: Kimi Code `max_context_size = 1000000` +
+`[loop_control] reserved_context_size = 80000` (буфер до серверных 1 048 576 и
+ранняя компакция), opencode `limit.context = 1000000`. Живые сессии подхватят
+новый бюджет только после рестарта приложений. Не проверено иглами: качество YaRN
+на 4× растяжки (прогнать `_needle.py` на 673k+ при случае).
+
+## 27.09 — тулзы на хосте, не на Windows: rsh/rput/rget + AGENTS.md
+
+Вопрос владельца: можно ли, чтобы инструменты исполнялись не на Windows, а на
+боевом хосте. В Kimi Code **нет встроенного удалённого исполнителя** (проверено по
+официальным докам config.toml) — решение гибридное, поверх ssh, которым проект и
+так пользовался стихийно.
+
+- Добавлены обёртки: `ops/rsh.sh` (удалённый `bash -lc`, BatchMode, проброс
+  exit-кода — проверено `exit 7` → 7), `ops/rput.sh` (upload в `~/agent-tools/`),
+  `ops/rget.sh` (забрать отчёты). Рунд-трип rput/rget проверен, файлы сверены `cmp`.
+- На хосте заведены `~/agent-tools/` (рабочие скрипты агента) и `~/bin/`.
+- Создан `D:\llm\AGENTS.md`: что исполняется локально (репозиторий, git, зеркала
+  конфигов), а что только на хосте (nmap, hashcat, ffuf, сканы целей из
+  `pentest-xiaomievparts/`, нагрузочные прогоны, компиляция); правила боевого хоста —
+  не трогать `sglang.service`/`vllm-watchdog`/`active.cfg` без спроса, `.maintenance`
+  при работах в `~/vllm`, hashcat только через `hashcat-nvrtc`, sudo на хосте с
+  паролем (NOPASSWD — только перечисленные юниты), `image prune -a` запрещён.
+  README «Быстрый доступ» дополнен обёртками.
+- Инвентарь хоста: **есть** nmap 7.98, hashcat (официальный 7.1.2 + обёртка), gdb,
+  python3, curl; **нет** ffuf, nuclei, sqlmap, hydra, gobuster, checksec — ставить
+  по первому требованию.
+- **ЗАКРЫТО (27.09, вечер): ffuf v2.3.0 установлен** в `~/bin/ffuf` на хосте, `ffuf -V`
+  из-под `rsh` OK. Скачано напрямую с GitHub релизов (`ffuf_2.3.0_linux_amd64.tar.gz`,
+  `curl -m 120`) — в прошлый раз качанка легла вместе с интернетом. Нюанс: проверять
+  через `-V`, флага `-version` у ffuf нет (это от gobuster).
+
 ## 2026-09-17 (ночь) — подбор max-mamba-cache-size: крашлуп из-за ХОСТОВОЙ памяти
 
 Перебирали размер кеша состояний Mamba. Итог: **остановились на 64**. По дороге
@@ -833,3 +905,62 @@ KDA = Kimi Delta Attention, GDN = Gated DeltaNet у Qwen. Идея delta-net о�
 - Удалено: _dickson_cmp (6 ГБ), дубль-тег rollback:keep-before-2.5.1. Оставлены: keep-v2.5.0-golden, keep-no-unquant-live, образ v2.5.0 (до недельной выдержки v2.5.1).
 - SSH: ключи molochko_deploy (рабочий) + id_ed25519_kimi_ops установлены; пароли для доступа к хосту больше не нужны — пароль стоит сменить.
 - TONIGHT-2026-09-16.md: помечен «миссия закрыта», статус былью-ставших пунктов в шапке.
+
+## 22.09: A/B абилишейта + уборка диска
+- A/B канон vs dealignai-ABLITERATED (стенд v2.5.1, temp=0, effort=medium, NIAHS 362K): кодинг 6/6 оба; скорость greedy 355.9 vs 348.4 (аблит быстрее декода, но многословнее в thinking: медиана кодинга 218.8 vs 275.9 tok/s); NIAHS: оба 4/4 сингла + 20/20 мульти — «не держит разговоры» не подтвердилось на ретривале. Пентест-спарринг (арена 1.3МБ/362K токенов, SQLi): канон-raw 39.9s всё верно (payload синтаксически целым GROUP BY), аблит-raw 42.8s нашёл, но payload `' OR 1=1 --` ломает агрегат (42P10) — уверенная мелкая фактическая ошибка как классический риск аблитерации; агент-рука 48s + аудит-трейл. Отчёты: penny/ops/ab-*.json, pt-*.json. Репо арены: /home/molochko/pentest-arena, TRUTH отдельно. Абилишейт НЕ снесён (решение юзера).
+- Убрано с диска: 4×27B (132G), ComfyUI (433G), CYBER (126G), FP8 (7.6G), RadixArk+_radix_mtp (25G, NIAHS-дефект 300/2048 в HF #12), open-webui, vllm-openai-образ, turbo-образ 48.7G (решение юзера, пока оставлен), uv-кэш 32G, датасет-кэш, логи. Пины v2.5.0 сняты по явном согласию (контракт на откат к 2.5.0 закрыт 22.09). Свободно 2.4–2.9T.
+- Хвосты: watch-лист arxiv-МСП обнулился после переустановки Windows; позиция виджета дефолтная.
+
+## 25.09: после переустановки Windows + патч FORWARD_UNKNOWN_TOOLS
+- Проверка после реинста: бэкап D:\kimi (898M: kimi-code, ssh, opencode, gitconfig, projects/llm) цел; скилы 11/11; конфиг/сессии (6 wd_*) восстановлены; ключи работают (GPU-хост BatchMode, GitHub deploy). Тулчейн: py 3.12.10, node 24.19, git 2.55. Битость: python certifi SSL (api.github через python падает, curl работает) — починить `pip install --upgrade certifi`. Виджет поднят вручную (в автостарте не стоит — отложено).
+- Свежий срез по источникам: релизов нет (v2.5.1 по-прежнему; мейнтейнер с PR#18 PENNY_REASONING_EFFORT «staged right now» по комментам 24.09 — ждать #24-релиз). #17 (галлюцинации tool-echo на Flash-Next+спеки): matteoserva подтвердил на next-plain, dyduchl: без MTP/FR-Spec чисто; jpezzulli не воспроизвёл на staged-релизе. Новые: #21 Swift-1.5-Qwen3.8-Flash-Next-NVFP4 (ukisai, 22.09, токен-экономный агентный вариант — кандидат на A/B харнес перед внедрением), #22 «не запекать run-скрипт в контейнер», #23 «отключаемый HiCache». RadixArk #12/#13 — без движений. dealignai #2 freetoken — похвала, не деффект.
+- Патч: в /home/molochko/penny/tp2-serve-flash-next.sh добавлен `export SGLANG_FORWARD_UNKNOWN_TOOLS="${...:-true}"` (строка 7, паттерн upstream-коммита cfb5d1af6 от 17.09, который не дописали в next-plain). Бэкапы: .bak-fut-<ts>. Рестарт через супервизор. Подтверждено в environ sglang-процесса. Снимок: snapshots/20260925-000903--fwd-unknown-tools-20260925 + пин rollback:keep-fwd-unknown-tools-20260925. verify 6/6 PASS (server_info, metrics, file_hashes 20, template_400, effort low=923/xhigh=2993, accept медиана 2.40, retract 0, n=147). Локальное зеркало конфига: D:\llm\ops\tp2-serve-flash-next.sh.
+
+## 25.09 (вечер): mem-fraction 0.92 + watch-list
+- **mem-fraction-static 0.90 → 0.92** по наблюдению юзера (VRAM ~87/96 стабильно, ~9ГБ/карта простаивало). Скрипт: penny/ops/mf_upgrade.sh (автооткат на .bak-mf090 при нездоровье). Итог: health 200s, OOM=0, KV-пул 2 208 192 → 2 476 288 (+268K, +12%), short_bench медиана 332.0 против эталона 332.2 (статистический ноль), accept медиана 2.25-2.42, **retract 0** (n=213) — «риск при 0.92» из легенды не подтверждён. Новый золотой снапшот: snapshots/20260925-051754--mf092-20260925, пин rollback:keep-mf092-20260925. verify 6/6 PASS. Зеркало конфига D:\llm\ops\tp2-serve-flash-next.sh обновлено.
+- WATCH #1: HF тред ukisai/Swift-1.5-Qwen3.8-Flash-Next-NVFP4 **discussions/1** («Swift NVFP4 And Nvidia NVFP4 of Qwen Flash Next», needmorevramog, 24.09 18:17): те же вопросы, что и у нас — сравнение с NVIDIA-квантом и бенчмарки; ответов от автора пока НЕТ. Смотреть при свипах: появились ли ответы/подтверждения качества (NIAHS/long-context у Swift не мерился вообще, blackwell_validation=not_run, quality=pending). Если скажут «хуже NVIDIA» или всплывут артефакты кванта — это закрывает вопрос о его внедрении без наших прогонов.
+- (контекст: Swift-1.5 = RL-финетюн Flash-Next от ukisai, −63% thinking-токенов, <1% точности; лицензия swift-open-license, gated; NVFP4-квант собран modelopt 0.47.0rc1.dev, валидировался только на H100/Marlin. План: скачка + отдельный лист + NIAHS/кодинг/скорость/accept против эталонов — ждёт «качай».)
+
+## 25.09 (вечер): подняли Hashview-панель (hashcat)
+- Панель: `/home/molochko/hashview` (compose `hashview-app-1` + `hashview-db-1` MySQL) + `hashview-agent.service` (hashcat 7.1.2 на хосте). Симптом: панель недоступна на `192.168.2.127:5000`, агент в crash-loop (connection refused), при этом БД healthy и Flask-процесс «Up».
+- Причина: у `hashview-app-1` осиротел сетевой endpoint (`NetworkSettings.Networks = {}`, `docker port` пустой) при корректном конфиге проброса `192.168.2.127:5000->5000` (config-hash compose совпадал). Простой `compose restart app` НЕ чинит; помогло `docker compose up -d --no-build --force-recreate app` (образ `hashview-app:latest` 541c350c тот же, что у контейнера — c3963f это manifest-digest, не отдельный образ).
+- Проверено: `/login` 200, миграции ОК; агент (PID с 16:50) ожил, `last_checkin` обновляется в реальном времени; в БД `agents.status=Pending` — если задания не пойдут, одобрить агент в UI панели.
+- Известный некритичный баг (апстрим, не чинили): почасовая задача `DATA_RETENTION` падает `Working outside of application context` (`/hashview/scheduler.py:182`).
+- Учти: GPU сейчас на 99% занят sglang-продом — hashcat-задания будут конкурировать с инфером.
+- Закачали 3 PMKID-хеша (hcxdumptool, WPA*01, режим 22000: ASUS226, Pantum DIRECT, apoint5) через `POST /v1/hashfiles/upload/<cust>/5/22000/<name>` (file_format 5=hash_only; валидатор для неизвестных типов пропускает как есть). Создан customer «WiFi PMKID 24-25.09» (id=2), hashfiles id=4/5/6, по 1 хешу, instacracked=0. Админу сгенерирован api_key (колонка `users.api_key`, обычный uuid4 — кнопка в UI /profile/generate_api_key делает то же).
+- На рабочий стол (`OneDrive\Desktop`) положены `Kimi OFF.bat` / `Kimi ON.bat` — stop/start юнита `sglang.service` на molochko по ssh (ключ molochko_deploy); ON ждёт `/health` до ~4 мин. `Kimi setup NOPASSWD.bat` — запустить один раз: ставит `/etc/sudoers.d/kimi-toggle` (NOPASSWD ровно на start/stop/restart sglang), после этого кнопки кликаются без пароля; до этого — фолбэк `ssh -t` с вводом sudo-пароля. Осторожно: OFF глушит инфер, на котором работает сама сессия Kimi Code.
+- Watchdog-сюжет (25.09 20:05): пользователь кликнул OFF — `sudo systemctl stop sglang` прошёл чисто (20:05:04, Deactivated successfully), но через 15 сек `/home/molochko/vllm/watch-vllm.sh` (процесс PID 192679; юнит `vllm-watchdog.service` при этом inactive+disabled — цикл запущен вне юнита) увидел мёртвый :1234 и поднял penny напрямую: `setsid nohup bash serve-penny.sh` (строчка в watch.log «20:05:19 1234 DOWN -> restart»). Отсюда «тебя поднял watchdog». Механизм: цикл каждые 20 с, `h 1234` (health/models), если никого с `sglang serve` не видно на хосте — стартует лист из active.cfg; контейнер-политикаRestart=«no», docker тут ни при чём.
+- Штатный рубильник watchdog'а — файл `/home/molochko/vllm/.maintenance` (при нём цикл просто спит 15-сек и ничего не трогает). Протокол кнопок теперь: OFF — сначала touch .maintenance, потом stop sglang + best-effort stop vllm-watchdog + `docker rm -f penny`, верификация через 25 с (STOPPED-CLEAN/STILL-UP); ON — touch .maintenance (защита от угона во время 3-минутной загрузки), docker rm -f penny, `systemctl restart sglang`, ждём /health, и только на READY — rm .maintenance. Если READY не наступил — maintenance остаётся взведён. `Kimi setup NOPASSWD.bat` обновлён (добавлены start/stop vllm-watchdog) — запустить ещё раз один раз.
+- Текущее состояние после правок: sglang.service inactive, penny крутится от watchdog (инфер жив) — первый клик ON приведёт всё к детерминизму (контейнер под sglang.service, watchdog размякшивлен).
+
+## 26.09 (ночь, 02:00-02:20): hashcat «виснет на 100%» — корень найен, 4 агента отработали
+- **Корень висяков: НЕ hashcat-код и не панель, а ядро драйвера.** Дважды (25.09 20:41:10, 26.09 01:31:11) на GPU0 `PCI 0000:01:00` — `NVRM: Xid 79 (GPU has fallen off the bus)` → `Xid 154 Node Reboot Required`; после этого любой `cuInit()` = unknown error, а hashcat-таски мгновенно «завершались» (800-байтные hcoutput «No OpenCL, HIP or CUDA compatible platform») — панель рисовала Working/Completed при нуле работы. AER/ECC чистые → не линк и не VRAM, а GSP-хэнж open-kernel-module 595.84 (upstream NVIDIA open-gpu-kernel-modules#1151, тот же класс на Blackwell). Триггер — длинные прогоны на OpenCL pure kernel m22000 при -w 3 и ~6 ГиБ свободной VRAM (sglang 0.92).
+- **Что сделано (агенты 3-4 + 5-6):**
+  1. Официальный hashcat 7.1.2 развёрнут: `/home/molochko/hashcat-official/hashcat/hashcat(.bin)` (распакован bsdtar'ом с Windows — py7zr не умеет BCJ2; Kernels/ в 7.1.2 встроены в бинарник, m22000 CUDA есть). Обёртка `/home/molochko/bin/hashcat-nvrtc` теперь: export LD_LIBRARY_PATH=/home/molochko/cuda-13.0/lib64, фильтрует серверные `-w N`, добавляет `-w 2 --backend-devices-keepfree=2 --backend-ignore-opencl --backend-ignore-hip`, exec официальный бинарник. Тест: обе карты CUDA API (Speed.#01/#02 ~1.8 MH/s каждая на коротком прогоне, self-test OK), Xid за прогоны — ни одного. Бэкапы обёрток: .bak-20260926, .bak-20260926-prefix.
+  2. Агент панели пропатчен (бэкапы *.bak-20260926-agentfix; local copies D:\llm\tmp\hashview-fix\): `run_command` с timeout + TERM→5s→KILL по группе процессов (start_new_session); watchdog зависшего hashcat (hcoutput не обновляется >900с → убой); финальный статус Failed при rc∉{0,1} и маркерах `cuInit unknown error`/`No OpenCL...` (+ sendError админу) — больше не «Completed» на трупах; отмена TERM→KILL; `Retry(total=100→5)` + явные timeouts; `get_stream()` (stream=True) для wordlists/hashfiles — пик RAM агента 22.4 ГиБ устранён.
+  3. Панель после этих работ снова лежала (флейск Up-но-мёртв, снова app_context-мусор в логах) — поднял `compose up -d --no-build --force-recreate app`; агент переподключился за секунды (новый Retry=5 подтверждён).
+- **Аудит панели (агент-6, read-only, не чинилось)** — блокеры: B1 update_job_task_status затирает agent_id ДО запроса агента (hc_status никогда не чистится; мёртвый Working зависает в UI); B2 `done` не знает статусов `Not Started`/`Ready` → «Completed при 0 кернелов» (главная ложная картинка!); B3 strptime(str(None)) после commit → 500 на /v1/jobtask/status → краш-луп агента при NULL started_at; B4 `is_authorized` пропускает запрос БЕЗ uuid-cookie как «пользователя с api_key IS NULL» (спит, включится со 2-м юзером). HIGH: DATA_RETENTION умер навсегда (partial(current_app)=LocalProxy) → control/tmp не чистился 47 дней; MAIL_SERVER=localhost в контейнере + bare except → 14 агентских сообщений об Xid-ошибках ушли в нишу (почему панель и «молчала»); heartbeat 500 на hc_status='somevalue'; гонка раздачи задач (нет FOR UPDATE SKIP LOCKED); API netntlm/user_hash всегда 500 (сигнатура validate_*); hash_type int/str — NTLM-керны через API теряются; `/agents/download` мёртв (install/ вне образа); docker app под root, конфиги только пересборкой образа; UI: мёртвый агент «Idle» до 59 минут, `/agents/restart` — битая ссылка, делёж на ноль в прогресс-баре.
+- settings: max_runtime_jobs/tasks = 0 (серверные watchdog'и ВЫКЛУЧЕНЫ) — включить (напр. 30-60 мин) = дешёвая защита от зависаний; и watch за `journalctl -k | grep Xid` — при повторе Xid 79: переход на proprietary-драйвер 595.x или NVreg_DynamicPowerManagement=0x00 / pcie_aspm=off.
+- Пользователю: job 7 в Canceled — для нового прогона заново создать job на hashfile или сказать мне (переставлю job_tasks в Queued). Маски ?d×10 и 15-ГБ wordlist'ы теперь пойдут на CUDA-кернелах с -w 2/keepfree 2% — без прежних 100%-зависаний; при Xid агент сам пометит Failed, а не «Completed».
+- 02:21: watchdog'и включены (settings: max_runtime_tasks=4ч, max_runtime_jobs=24ч; started_at заполнен вручную из-за B3-краша), job 7 перечеквечтован. Живой прогон: 180 (rockyou+best64) Completed по-настоящему, 181 (hybrid ?d×3) Running ETA 28:53, скорость 8.2 MH/s стабильно, обе карты 99% (hashcat CUDA + sglang мирно, keepfree держит ~2%), Xid нет. Разбор хеша — вопрос удачи словарей/масок, не техники: очередь идёт, статусы честные.
+
+## 26.09 (ночь): hashcat «фиктивно перебирал» — две причины, обе починены
+- Симптом: job 7 (3 PMKID, -m 22000) прошёл 18 тасков за 6 минут, прогресс в UI был, результат 0. Файлы hcoutput_* — по 800 байт, Started==Stopped.
+- Причина 1 (главная): Ubuntu-пакет `hashcat 7.1.2+ds1-3` не видит **libnvrtc** → «Failed to initialize NVIDIA RTC library» → CUDA-бэкенд отвергает Blackwell (sm_120 нужен JIT) → откат на OpenCL → `CL_MEM_OBJECT_ALLOCATION_FAILURE` (sglang держит ~90.8/96 ГиБ на обеих картах). Каждый таск умирал за 1 с, панель считала его выполненным — «якобы перебирал».
+- Фикс 1: обёртка `/home/molochko/bin/hashcat-nvrtc` (экспортирует `LD_LIBRARY_PATH=/home/molochko/cuda-13.0/lib64`, exec /usr/bin/hashcat) + в агенте `agent/config.conf` `HC_BIN_PATH` переведён на обёртку. Проверено: CUDA инициализируется, self-test/autotune проходят, реальный разбор идёт, скорость в панели 5.4 MH/s (GPU делится с инфером).
+- Причина 2: панель легла 25.09 ~21:05 MSK (db exit 0, app exit 137 — в момент моих двух тестовых запусков hashcat -w 3 по 4.2ГиБ хостовой памяти на каждый; хост был в доступных ~10-25ГиБ). Поднял `docker compose up -d app` (start без up не прошёл — flask падал на миграциях до готовности db).
+- Ловушка агента: после рестарта не чеканился ~час — в `agent/http/http.py` висит `Retry(total=100, backoff_factor=1)`: пока панель лежала, агент экспоненциально ретраил внутри одного запроса. Лечится `kill <pid>` (юнит с Restart=always поднимет заново). Помнить: поднял панель → перезапусти агента.
+- `-w 3` зашит в build_hashcat_command (hashview/utils/utils.py ~387) — вне контейнера не поменять; при OOM-повторах править через docker exec или mount в compose.
+- Про перекос времени: маски ?l x8 и ?l?l?l?l?l?l?d?d на 5.4 MH/s — это часы/сутки; для них имеет смысл OFF инфера на время брута.
+
+## 28.09 (ночь): Pennyroyal v2.5.2 — установка и верификация
+- БАЗА 2.5.1 @1M: short_bench медиана 310.5 (261–335), low-chat 362, NIAHS 4/4+20/20, verify PASS (accept 2.42/retract 0, n=152).
+- Pull v2.5.2 (digest 294953f4…, 27.1G, 7.5 мин). До свитча: snapshot --pin pre-252. Лист serve-penny-252.sh = sed-клон (1 строка: тег). Протокол: .maintenance → sudo restart → health 210s → smoke OK → maintenance снят. Параметры идентичны: mf 0.92, ctx 1 048 576, KV 2 445 440.
+- ПОСЛЕ 2.5.2: short_bench медиана 313.0 (+0.8%, в шуме), low-chat 339, verify 6/6 PASS, **accept 2.46 / retract 0 (n=124)** — чуть лучше базы, OOM/CUDA/Xid строк 0.
+- Проверка заявленных фиксов по исходникам контейнера: tp_size-валидация в derive_namespace.py:139 ✓; FORWARD_UNKNOWN_TOOLS default-true в конфигу образа ✓ (наш export теперь избыточен, но совместим); новые хелперы reasoning-effort/tp-devices/request-capacity на месте ✓; hicache «evict only the shortfall» mem_cache/common.py:137 ✓; topk-overflow комментарий flashinfer_backend.py:2365 ✓; FR-Spec shared-head hot_vocab.py:22 ✓. #39333 (single QSA gather) — по wall-таймингам НЕ подтверждается и НЕ опровергается: стены NIAHS зависят от прогретости кэша (база на старом прогретом сервере vs после на свежем), для чистого замера нужно 4 рестарта с очисткой кэшей — не согласовано.
+- Golden: snapshots/2026092*-…--252-live + docker-пин rollback:keep-252-live (всего 6 пинов, включая pre-252 и ctx1m). v2.5.1 образ остался на диске — мгновенный откат актив.cfg на serve-penny.sh.
+- Зеркала: ops/serve-penny-252.sh, ops/tp2-serve-flash-next.sh (обновлён под 1M-состояние).
+- Наблюдение: наш смонтированный tp2-конфиг — форк эпохи 2.5.1, не использует новые хелперы (reasoning-effort.sh и т.д.) — работает корректно, но при следующем крупном релизе стоит пересобрать от ихнего шаблона с переносом наших правок (CONTEXT_LENGTH=1048576, YaRN factor=4, TP=2, hicache 24, FORWARD-override).
+- ЧИСТЫЙ A/B #39333 (холодный префил 361 877 токенов, оба старта с нуля, зонд max_tokens=1): 2.5.1 wall 40.17s (9008 tok/s) vs 2.5.2 wall 40.49s (8937 tok/s) — **ускорения префила нет, difference в шуме**. Фик про «single gather» — про пиковую память, а не про скорость; на 0.92/KV 2.44M это не ловится инструментарием без профилера. Тёплые контроли: 1.28 vs 1.20 s (hit-режим идентичен).
+- Effort-хелпер: tp2-serve-flash-next.sh переведён на source reasoning-effort.sh (fallback для 2.5.1 — байт-в-байт старый JSON). kwargs на обеих руках: {'enable_thinking':true,'preserve_thinking':true,'reasoning_effort':'medium'} — сервер_info PASS; effort_effect гейт живой (low=1170, xhigh=5543); PENNY_REASONING_EFFORT=xhigh|high|... теперь рычаг через env контейнера.
+- Golden: snapshot 252-effort-live (23 файла) + docker-пин rollback:keep-252-effort-live, verify 6/6 PASS. Зеркало ops/tp2-serve-flash-next.sh обновлено. Хвост: временные apply/prefill-скрипты из penny/ops подчищены; в agent-tools остались ab39.{sh,out} + prefill_probe.py — не мешают.

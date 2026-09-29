@@ -72,7 +72,7 @@ exit 0, никого не убивая. Замок лежит именно в le
 --tp 2                              две карты
 --mem-fraction-static 0.86          НЕ поднимать, см. notes про пик префила
 --kv-cache-dtype fp8_e4m3           только вместе с патчем sparse_attn.py
---context-length 786432             + YaRN factor 3.0 через json-model-override-args
+--context-length 1048576            + YaRN factor 4.0 через json-model-override-args (с 27.09; было 786432/3.0)
 --speculative-algorithm NEXTN       (алиас к EAGLE в этой сборке)
 --speculative-num-steps 3 --speculative-eagle-topk 1 --speculative-num-draft-tokens 4
 --moe-runner-backend flashinfer_cutlass    единственный работающий для NVFP4
