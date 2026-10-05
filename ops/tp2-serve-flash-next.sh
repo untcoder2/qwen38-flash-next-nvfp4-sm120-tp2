@@ -28,7 +28,7 @@ if [[ -f "$SCRIPT_DIR/reasoning-effort.sh" ]]; then
 else
   DEFAULT_CHAT_TEMPLATE_KWARGS='{"enable_thinking":true,"preserve_thinking":true,"reasoning_effort":"medium"}'
 fi
-CONTEXT_LENGTH=1048576
+CONTEXT_LENGTH=786432
 PAGE_SIZE=64
 TP_SIZE=2
 COMPUTE_DTYPE=bfloat16
@@ -76,7 +76,7 @@ export TOKENIZERS_PARALLELISM=false
 source "$SCRIPT_DIR/ple-backend.sh"
 configure_max_total_tokens
 
-TARGET_OVERRIDES='{"text_config":{"max_position_embeddings":1048576,"rope_parameters":{"mrope_interleaved":true,"mrope_section":[11,11,10],"rope_type":"yarn","rope_theta":10000000,"partial_rotary_factor":0.25,"factor":4.0,"original_max_position_embeddings":262144}}}'
+TARGET_OVERRIDES='{"text_config":{"max_position_embeddings":786432,"rope_parameters":{"mrope_interleaved":true,"mrope_section":[11,11,10],"rope_type":"yarn","rope_theta":10000000,"partial_rotary_factor":0.25,"factor":3.0,"original_max_position_embeddings":262144}}}'
 SGLANG_REV="$(git -C "$REPO_ROOT" rev-parse --short=10 HEAD)"
 TORCH_VERSION="$("$PYTHON" -c 'import torch; from sglang.srt.utils import resolve_mm_preprocess_device; resolve_mm_preprocess_device(); print(torch.__version__)')"
 echo "Media preprocessing: $SGLANG_MM_PREPROCESS_DEVICE ($IMAGE_PROCESSOR_BACKEND); model GPU: cuda:0"
@@ -107,7 +107,7 @@ NIXL_STORAGE="$("$NAMESPACE_HELPER" \
   --field "hicache_mem_layout=page_first" \
   --field "mamba_ssm_dtype=$MAMBA_SSM_DTYPE" \
   --field "mamba_conv_dtype=$MAMBA_CONV_DTYPE" \
-  --field "max_mamba_cache_size=24" \
+  --field "max_mamba_cache_size=128" \
   --field "mamba_radix_cache_strategy=extra_buffer" \
   --field "mamba_track_interval=$MAMBA_TRACK_INTERVAL" \
   --field "linear_attn_decode_backend=flashinfer" \
@@ -130,10 +130,10 @@ launch_args=(serve \
   --host 0.0.0.0 --port 8001 --tp "$TP_SIZE" \
   --disable-custom-all-reduce \
   --dtype "$COMPUTE_DTYPE" --quantization modelopt_fp4 --kv-cache-dtype "$KV_DTYPE" \
-  --mem-fraction-static 0.92 \
+  --mem-fraction-static 0.95 \
   "${TOKEN_CAP_ARGS[@]}" \
   --context-length "$CONTEXT_LENGTH" --json-model-override-args "$TARGET_OVERRIDES" \
-  --page-size "$PAGE_SIZE" --max-running-requests 8 --sleep-on-idle \
+  --page-size "$PAGE_SIZE" --max-running-requests 16 --sleep-on-idle \
   --chunked-prefill-size "$PREFILL_CHUNK_SIZE" \
   --mamba-radix-cache-strategy extra_buffer --mamba-ssm-dtype "$MAMBA_SSM_DTYPE" \
   --max-mamba-cache-size 128 --gdn-mtp-cache-mode none \
