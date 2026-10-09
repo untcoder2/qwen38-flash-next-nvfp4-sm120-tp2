@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Kimi Token Ops — статистика токенов</title>
+  <script>document.documentElement.classList.add("js");</script>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/charts.css">
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"></div>
+
+  <div id="cdn-banner" class="banner banner-warn" hidden>
+    ECharts не загрузилась с cdn.jsdelivr.net — графики отключены, остальная статистика работает.
+    Проверьте доступ в интернет и обновите страницу.
+  </div>
+  <div id="error-banner" class="banner banner-danger" hidden></div>
+
+  <header class="topbar glass">
+    <div class="brand">
+      <span class="logo-mark" aria-hidden="true">K</span>
+      <span class="brand-name">Kimi Token Ops</span>
+      <span class="brand-sub">локальный инфер · SGLang @ 192.168.2.127</span>
+    </div>
+    <div class="topbar-meta">
+      <span id="generated-at" class="gen-at">ожидание данных…</span>
+      <button id="refresh-btn" class="btn" type="button" title="Пересобрать данные на сервере (wire-пуш + метрики + цены) и перезагрузить страницу">обновить данные</button>
+    </div>
+  </header>
+
+  <section class="hero" id="hero" aria-label="Сводка">
+    <div class="hero-head">
+      <h1 class="hero-title">Токены за последнее время</h1>
+      <span id="hero-period" class="hero-period"></span>
+    </div>
+    <div class="hero-numbers">
+      <div class="big-number" data-metric="total">
+        <span class="big-value" id="stat-total">—</span>
+        <span class="big-label">всего токенов</span>
+      </div>
+      <div class="big-number" data-metric="prompt">
+        <span class="big-value" id="stat-prompt">—</span>
+        <span class="big-label">prompt</span>
+      </div>
+      <div class="big-number" data-metric="gen">
+        <span class="big-value" id="stat-gen">—</span>
+        <span class="big-label">generation</span>
+      </div>
+      <div class="big-number" data-metric="steps">
+        <span class="big-value" id="stat-steps">—</span>
+        <span class="big-label">шагов</span>
+      </div>
+    </div>
+    <div class="hero-side">
+      <span id="cache-chip" class="chip">cache hit —</span>
+      <div class="server-status" id="server-status">
+        <span class="dot" id="server-dot" aria-hidden="true"></span>
+        <span id="server-label">сервер инфера: —</span>
+      </div>
+    </div>
+  </section>
+
+  <div id="placeholder" class="placeholder" hidden>
+    <div class="ph-card glass">
+      <span class="ph-mark" aria-hidden="true">K</span>
+      <h2>Данные не найдены</h2>
+      <p>Файл <code>data.js</code> отсутствует или пуст.<br>
+         Запусти <code>Dashboard.bat</code> в каталоге <code>D:\llm\dashboard</code> —<br>
+         он соберёт статистику и откроет эту страницу. Затем нажми «обновить данные».</p>
+      <button id="placeholder-reload" class="btn btn-big" type="button">обновить данные</button>
+    </div>
+  </div>
+
+  <main class="grid" id="charts-root">
+    <section class="card glass reveal" data-chart="chart-projects">
+      <h2 class="card-title">Токены по проектам</h2>
+      <div class="chart" id="chart-projects"></div>
+    </section>
+    <section class="card glass reveal" data-chart="chart-days">
+      <h2 class="card-title">Динамика по дням</h2>
+      <div class="chart" id="chart-days"></div>
+    </section>
+    <section class="card glass reveal" data-chart="chart-cache">
+      <h2 class="card-title">Cache hit</h2>
+      <div class="chart" id="chart-cache"></div>
+    </section>
+    <section class="card glass reveal" data-chart="chart-price">
+      <h2 class="card-title">Облачные оценки, $ за период</h2>
+      <p class="card-sub">кэш-вход по серверному hit-rate, остальные токены по полным тарифам входа/выхода</p>
+      <div class="chart" id="chart-price"></div>
+    </section>
+    <section class="card glass reveal" data-chart="chart-server">
+      <h2 class="card-title">Сервер инфера</h2>
+      <div class="chart" id="chart-server"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Локальный дашборд · данные из <code>data.js</code> (refresh.py) · без сети и сборки
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js" onerror="window.__DASH_ECHARTS_FAILED = true"></script>
+  <script src="data.js" onerror="window.__DASH_DATA_FAILED = true"></script>
+  <script src="js/app.js"></script>
+  <script src="js/charts.js"></script>
+</body>
+</html>

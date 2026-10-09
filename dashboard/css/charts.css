@@ -1,0 +1,149 @@
+/* ui_charts — стили внутреннего содержимого графиков (DASH_CHARTS).
+ * Стеклянные карточки-обёртки (.card) — зона ui_core (css/style.css);
+ * здесь — только сами контейнеры чартов, плейсхолдеры, дымка и плашки.
+ * Общие CSS-переменные (var(--accent-…) из style.css) используются с фолбэком. */
+
+#chart-projects,
+#chart-days,
+#chart-cache,
+#chart-price,
+#chart-server {
+  position: relative;          /* для DOM-оверлеев (плашка ₽, дымка offline) */
+  width: 100%;
+  min-height: 230px;
+  contain: layout;
+}
+
+#chart-cache { min-height: 250px; }
+
+/* ---------- плейсхолдер «нет данных» ---------- */
+.dash-chart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 200px;
+  height: 100%;
+  color: var(--text-dim, #8391ad);
+  animation: dash-in 0.5s ease both;
+}
+
+.dash-chart-empty__icon {
+  font-size: 26px;
+  line-height: 1;
+  color: var(--accent-cyan, #46e0ff);
+  opacity: 0.45;
+}
+
+.dash-chart-empty__text {
+  font-family: var(--font-sans, "Inter", system-ui, "Segoe UI", sans-serif);
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  text-align: center;
+  padding: 0 12px;
+}
+
+.dash-chart-empty__text::after {
+  content: "";
+  display: block;
+  width: 42px;
+  height: 1px;
+  margin: 10px auto 0;
+  background: linear-gradient(90deg, transparent, rgba(131, 145, 173, 0.5), transparent);
+}
+
+/* ---------- дымка «сервер недоступен» ---------- */
+.dash-haze {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12px;
+  border-radius: 12px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 180, 84, 0.05), transparent 55%),
+    rgba(5, 7, 13, 0.62);
+  backdrop-filter: blur(2.5px) saturate(0.55);
+  -webkit-backdrop-filter: blur(2.5px) saturate(0.55);
+  pointer-events: none;
+  animation: dash-in 0.6s ease both;
+}
+
+.dash-haze__pill {
+  font-family: var(--font-sans, "Inter", system-ui, "Segoe UI", sans-serif);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  color: #ffd9a8;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: rgba(24, 16, 5, 0.82);
+  border: 1px solid rgba(255, 180, 84, 0.5);
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- контрастная плашка «локально ≈ N ₽» над chart-price ---------- */
+.dash-plate {
+  position: absolute;
+  bottom: 32px;   /* выше подписей оси X */
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 13px 8px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, rgba(28, 19, 6, 0.92), rgba(12, 14, 26, 0.9));
+  border: 1px solid rgba(255, 180, 84, 0.55);
+  box-shadow:
+    0 6px 26px rgba(0, 0, 0, 0.55),
+    inset 0 0 22px rgba(255, 180, 84, 0.07);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+  animation: dash-in 0.7s 0.25s ease both;
+}
+
+.dash-plate__label {
+  font-family: var(--font-sans, "Inter", system-ui, "Segoe UI", sans-serif);
+  font-size: 9.5px;
+  letter-spacing: 0.09em;
+  text-transform: lowercase;
+  color: rgba(255, 217, 168, 0.8);
+}
+
+.dash-plate__value {
+  font-family: var(--font-mono, "JetBrains Mono", ui-monospace, Consolas, monospace);
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffe9c7;
+  text-shadow: 0 0 18px rgba(255, 180, 84, 0.45);
+}
+
+/* ---------- появление ---------- */
+@keyframes dash-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-chart-empty,
+  .dash-haze,
+  .dash-plate { animation: none; }
+}
+
+/* мобильный столбик (сетку задаёт style.css) — компактные подписи не режем,
+   только подстраховка по высоте */
+@media (max-width: 640px) {
+  #chart-projects,
+  #chart-days,
+  #chart-cache,
+  #chart-price,
+  #chart-server { min-height: 210px; }
+
+  .dash-plate { bottom: 28px; right: 6px; padding: 5px 10px 6px; }
+  .dash-plate__value { font-size: 15px; }
+}

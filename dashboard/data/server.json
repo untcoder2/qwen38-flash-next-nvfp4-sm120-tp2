@@ -1,0 +1,23 @@
+{
+  "updated_at": "2026-10-09T00:05:31+03:00",
+  "online": true,
+  "counters": {
+    "prompt_total": 6986558692,
+    "generation_total": 31143211
+  },
+  "info": {
+    "max_total_num_tokens": 2752640,
+    "page_size": 64,
+    "max_running_requests": 16,
+    "kv_cache_dtype": "fp8_e4m3",
+    "hicache_size": 24,
+    "kv_pool": {
+      "token_usage": 0.22,
+      "full_token_usage": 0.053848,
+      "swa_token_usage": 0.0,
+      "mamba_usage": 0.21875,
+      "kv_available_tokens": 1408.0,
+      "kv_cache_memory_gb": 35.440364
+    }
+  }
+}

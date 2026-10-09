@@ -1,0 +1,153 @@
+{
+  "updated_at": "2026-10-09T00:55:47+03:00",
+  "window_days": 30.0,
+  "wire_source": "collect_wire",
+  "totals": {
+    "prompt": 33168353487,
+    "gen": 142948247,
+    "cache_read": 312708527
+  },
+  "cloud": [
+    {
+      "vendor": "OpenAI",
+      "model": "GPT-6 Astra",
+      "in_usd": 10.0,
+      "cached_in_usd": 1.0,
+      "out_usd": 50.0,
+      "note": "флагман OpenAI; cache-write $12.50",
+      "est_usd": 336016.57
+    },
+    {
+      "vendor": "Anthropic",
+      "model": "Claude Opus 5.5",
+      "in_usd": 4.0,
+      "cached_in_usd": 0.2,
+      "out_usd": 20.0,
+      "note": "флагман Anthropic (22.09.26); cache-write $5",
+      "est_usd": 134344.09
+    },
+    {
+      "vendor": "Moonshot AI",
+      "model": "Kimi K3",
+      "in_usd": 3.0,
+      "cached_in_usd": 0.3,
+      "out_usd": 15.0,
+      "note": "1M контекста, input видео/картинки",
+      "est_usd": 100804.97
+    },
+    {
+      "vendor": "Google",
+      "model": "Gemini 3.1 Pro",
+      "in_usd": 2.0,
+      "cached_in_usd": 0.2,
+      "out_usd": 12.0,
+      "note": "промпт >200K: $4/$18",
+      "est_usd": 67489.21
+    },
+    {
+      "vendor": "Anthropic",
+      "model": "Claude Sonnet 5",
+      "in_usd": 2.0,
+      "cached_in_usd": 0.3,
+      "out_usd": 10.0,
+      "note": "кэш ~",
+      "est_usd": 67234.58
+    },
+    {
+      "vendor": "OpenAI",
+      "model": "GPT-6 Sol",
+      "in_usd": 2.0,
+      "cached_in_usd": 0.2,
+      "out_usd": 10.0,
+      "note": "вдвое дешевле GPT-5.6 Sol",
+      "est_usd": 67203.31
+    },
+    {
+      "vendor": "xAI",
+      "model": "Grok 4.7",
+      "in_usd": 2.0,
+      "cached_in_usd": 0.5,
+      "out_usd": 6.0,
+      "note": "промпт >200K: $4/$1/$12",
+      "est_usd": 66725.33
+    },
+    {
+      "vendor": "Alibaba",
+      "model": "Qwen3.8-Max",
+      "in_usd": 2.0,
+      "cached_in_usd": 0.2,
+      "out_usd": 6.0,
+      "note": "флагман Alibaba Cloud (SG-region); кэш ~",
+      "est_usd": 66631.52
+    },
+    {
+      "vendor": "Anthropic",
+      "model": "Claude Haiku 4.5",
+      "in_usd": 1.0,
+      "cached_in_usd": 0.1,
+      "out_usd": 5.0,
+      "note": "быстрый; кэш ~",
+      "est_usd": 33601.66
+    },
+    {
+      "vendor": "Moonshot AI",
+      "model": "Kimi K2.7 Code",
+      "in_usd": 0.95,
+      "cached_in_usd": 0.1,
+      "out_usd": 4.0,
+      "note": "агентский кодинг; кэш ~",
+      "est_usd": 31815.93
+    },
+    {
+      "vendor": "Google",
+      "model": "Gemini Flash",
+      "in_usd": 0.75,
+      "cached_in_usd": 0.075,
+      "out_usd": 3.75,
+      "note": "3.6–3.8 Flash; кэш ~",
+      "est_usd": 25201.24
+    },
+    {
+      "vendor": "DeepSeek",
+      "model": "V4.1 Flash",
+      "in_usd": 0.3,
+      "cached_in_usd": 0.006,
+      "out_usd": 1.2,
+      "note": "пик-тариф; офф-пик $0.15/$0.60",
+      "est_usd": 10030.11
+    },
+    {
+      "vendor": "Alibaba",
+      "model": "Qwen3.8-Flash",
+      "in_usd": 0.15,
+      "cached_in_usd": 0.015,
+      "out_usd": 0.47,
+      "note": "≈ та же модель, что на своём стенде; кэш ~",
+      "est_usd": 5000.22
+    },
+    {
+      "vendor": "OpenAI",
+      "model": "GPT-6 Luna",
+      "in_usd": 0.1,
+      "cached_in_usd": 0.01,
+      "out_usd": 0.5,
+      "note": "бюджетный класс",
+      "est_usd": 3360.17
+    },
+    {
+      "vendor": "Google",
+      "model": "Gemini Flash-Lite",
+      "in_usd": 0.1,
+      "cached_in_usd": 0.01,
+      "out_usd": 0.4,
+      "note": "самый дешёвый capable",
+      "est_usd": 3345.87
+    }
+  ],
+  "local": {
+    "kwh": 352.8,
+    "rub": 3528,
+    "note": "2×RTX PRO 6000, ~700 Вт суммарно под нагрузкой (600–750 Вт): активных дней в wire: 21 из 21 × 24 ч = 504 ч; тариф 10 ₽/кВт·ч."
+  },
+  "note": "Цены облачников — публичные прайс-агрегаторы, сверено 2026-10-09 (Qwen 09.10); кэш-вход с «~» — оценка ~10% от входа. Могут отставать от прайса вендора и не учитывать пик/офф-пик и ступени контекста — сверяйте."
+}

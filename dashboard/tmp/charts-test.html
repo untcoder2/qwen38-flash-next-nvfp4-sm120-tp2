@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tmp: ui_charts тест-харнесс (фиктивный DASH)</title>
+<!-- ВРЕМЕННЫЙ тест-файл агента ui_charts. Не часть дашборда: mock ui_core-разметки
+     + фиктивный window.DASH для скриншот-теста js/charts.js + css/charts.css.
+     Режимы: ?empty=1 ?offline=1 ?noecharts=1 ?nodash=1 -->
+<style>
+  :root{ --accent-amber:#ffb454; --accent-cyan:#46e0ff; --accent-purple:#b57bff; --bg:#05070d; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; padding:26px; background:
+    radial-gradient(90% 60% at 15% 0%, rgba(70,224,255,.07), transparent 55%),
+    radial-gradient(80% 60% at 90% 10%, rgba(181,123,255,.08), transparent 60%),
+    var(--bg);
+    color:#c9d5ea; font-family:"Inter",system-ui,"Segoe UI",sans-serif; }
+  h1{ font-size:15px; letter-spacing:.06em; color:#eaf2ff; margin:0 0 4px; }
+  .mode{ font-size:11px; color:#8391ad; font-family:"JetBrains Mono",Consolas,monospace; margin-bottom:18px; }
+  .grid{ display:grid; grid-template-columns:repeat(12,1fr); gap:16px; max-width:1280px; }
+  section.card{ grid-column:span 6; background:rgba(13,20,36,.55); border:1px solid rgba(110,140,200,.16);
+    border-radius:16px; padding:14px 16px 10px; backdrop-filter:blur(9px); }
+  section.card h3{ margin:0 0 8px; font-size:11px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:#8391ad; }
+  @media(max-width:860px){ section.card{ grid-column:span 12; } }
+</style>
+<link rel="stylesheet" href="../css/charts.css">
+</head>
+<body>
+<h1>ui_charts — скриншот-тест (фиктивный window.DASH)</h1>
+<div class="mode" id="mode"></div>
+
+<!-- разметка-имитация того, что обязуется отдавать ui_core по контракту -->
+<div class="grid">
+  <section class="card" data-chart="chart-projects"><h3>chart-projects · донат по проектам</h3><div id="chart-projects"></div></section>
+  <section class="card" data-chart="chart-days"><h3>chart-days · prompt/gen по дням</h3><div id="chart-days"></div></section>
+  <section class="card" data-chart="chart-cache"><h3>chart-cache · gauge кэш-хитов</h3><div id="chart-cache"></div></section>
+  <section class="card" data-chart="chart-price"><h3>chart-price · облако $ vs локально ₽</h3><div id="chart-price"></div></section>
+  <section class="card" data-chart="chart-server"><h3>chart-server · счётчики инфера</h3><div id="chart-server"></div></section>
+</div>
+
+<script>
+// ---------- фиктивный window.DASH (только для этого tmp-файла) ----------
+function days(n){
+  var out=[], base=new Date();
+  for(var i=n-1;i>=0;i--){
+    var d=new Date(base.getTime()-i*864e5);
+    var ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    var w=(i%7===0||i%7===6)?0.25:1;                       // выходные — тише
+    var sp=Math.abs(Math.sin(i*3.7))*0.9+0.25;             // детерминированная «волна»
+    var prompt=Math.round((2.1e6+sp*14e6)*w+Math.abs(Math.cos(i*1.3))*1.4e6);
+    var gen=Math.round(prompt*(0.035+Math.abs(Math.sin(i*2.1))*0.045));
+    out.push({date:ds, steps:Math.round(60+sp*700*w), prompt:prompt, gen:gen, cache_read:Math.round(prompt*0.66)});
+  }
+  return out;
+}
+var P=function(ws,steps,prompt,gen,cache_read){return {ws:ws,steps:steps,prompt:prompt,gen:gen,cache_read:cache_read};};
+var FULL={
+  generated_at:new Date().toISOString(),
+  window_days:30,
+  wire:{
+    updated_at:new Date().toISOString(),
+    totals:{steps:12841,prompt:214883201,gen:9112440,cache_read:153009880,cache_hit_pct:71.2},
+    projects:[
+      P('wd_llm_3934228e2eac',        4120, 88200000, 3900000, 63100000),
+      P('wd_qwen_fbd74c28f9b7',        2980, 54700000, 2100000, 40200000),
+      P('wd_kimi_e28017e5ffcc',        1840, 31100000, 1250000, 22800000),
+      P('wd_vpncode_8de0214b57d9',     1210, 18400000,  720000, 12600000),
+      P('wd_ghostlink-win_6d3882538345', 890, 11200000, 450000,  7900000),
+      P('wd_router_9628230f6069',       610,  6050000,  240000,  4300000),
+      P('wd_linuxvpn_a34793a75957',     480,  3300000,  130000,  2400000),
+      P('wd_secneo_lab_d7af3a513a33',   340,  1550000,   65000,  1100000),
+      P('wd_scratch_0000deadbeef',      171,   430000,   17000,   300000)
+    ],
+    days:days(30),
+    models:{'moonshotai/kimi-k2':['x']}
+  },
+  server:{
+    updated_at:new Date().toISOString(), online:true,
+    counters:{prompt_total:318200944, generation_total:12184003},
+    info:{max_total_num_tokens:16842752}
+  },
+  costs:{
+    updated_at:new Date().toISOString(),
+    totals:{prompt:214883201,gen:9112440,cache_read:153009880},
+    cloud:[
+      {vendor:'DeepSeek',   model:'deepseek-chat',       in_usd:0.27, cached_in_usd:0.07, out_usd:1.10, est_usd:0.41},
+      {vendor:'Google',     model:'gemini-2.5-flash',    in_usd:0.30, cached_in_usd:0.03, out_usd:2.50, est_usd:1.05},
+      {vendor:'Moonshot',   model:'kimi-k2',             in_usd:0.60, cached_in_usd:0.13, out_usd:2.50, est_usd:3.20},
+      {vendor:'OpenAI',     model:'gpt-4o-mini',         in_usd:0.15, cached_in_usd:0.075,out_usd:0.60, est_usd:6.90},
+      {vendor:'xAI',        model:'grok-4',              in_usd:3.00, cached_in_usd:0.75, out_usd:15.00,est_usd:12.40},
+      {vendor:'OpenAI',     model:'gpt-4o',              in_usd:2.50, cached_in_usd:1.25, out_usd:10.00,est_usd:118.00},
+      {vendor:'Anthropic',  model:'claude-sonnet-4.5',   in_usd:3.00, cached_in_usd:0.30, out_usd:15.00,est_usd:341.00}
+    ],
+    local:{kwh:132.4, rub:1287, note:'2×RTX PRO 6000 ≈ 675 W под нагрузкой × 10 ₽/кВт·ч'}
+  }
+};
+var q=new URLSearchParams(location.search);
+var MOCK=FULL;
+if(q.has('empty')) MOCK={generated_at:'',window_days:30,wire:{updated_at:'',totals:{},projects:[],days:[]},server:{updated_at:'',online:false,counters:{},info:{}},costs:{updated_at:'',totals:{},cloud:[],local:{}}};
+if(q.has('offline')){ MOCK=JSON.parse(JSON.stringify(FULL)); MOCK.server.online=false; MOCK.server.updated_at='2026-10-08T21:47:00+03:00'; }
+if(!q.has('nodash')) window.DASH=MOCK;
+document.getElementById('mode').textContent='mode: '+([...q.keys()].join('&')||'полные данные')+'; DASH: '+(window.DASH?'есть':'нет');
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script src="../js/charts.js"></script>
+<script>
+if(q.has('noecharts')) window.echarts = undefined; // тест вежливой деградации без библиотеки
+window.addEventListener('load', function(){
+  var arg = q.has('nodash') ? null : undefined; // undefined → init подхватит window.DASH
+  window.DASH_CHARTS.init(document, arg);
+  // тест «dispose при повторном init»: сразу пересобираем всё вторично
+  setTimeout(function(){ window.DASH_CHARTS.init(document, arg); }, 400);
+});
+</script>
+</body>
+</html>
