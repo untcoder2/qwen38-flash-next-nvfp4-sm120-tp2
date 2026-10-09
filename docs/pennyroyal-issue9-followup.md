@@ -31,11 +31,15 @@ Since then we A/B-ed our own workload: YaRN×4 @ 1 048 576 → YaRN×3 @ 786 432
    `--max-mamba-cache-size 128` — cache identity should be derived from the parsed server args
    rather than a duplicated literal list, otherwise different configs share one storage dir
    unnoticed. (Makes #32/#22 (host-side config files) even more valuable.)
-3. **`--max-running-requests 8` is too tight for agentic serving.** Head + 7 concurrent agents
-   saturate it exactly; the 9th request (agent resume, parallel tool round) queues behind the
-   running batch even with a fully warm prefix — which looks like a model stall in the client.
-   16 fixed it for us; maybe worth documenting an "agentic" preset alongside the single-user
-   recipe.
+3. **Two concurrency knobs bite agentic serving, and they interact.** `--max-running-requests 8`
+   saturates exactly at head + 7 agents: the 9th request (agent resume, parallel tool round)
+   queues behind the running batch even with a fully warm prefix — which looks like a model
+   stall on the client side. And as our original issue noted, `--max-mamba-cache-size` caps
+   real concurrency below that regardless of `max-running-requests` (the engine says so in
+   the log — appreciated), while the value in that log line is *not* what gets recorded into
+   the NIXL namespace tag (see point 2 — ours said 24 while the CLI ran 128). 16 requests /
+   128 mamba states fixed it for us; an "agentic" preset (or at least a startup-time sanity
+   line summarizing the effective concurrency floor) would save users the archaeology.
 
 One unproven suspicion that your own pipeline may have already caught: at YaRN×4/1M we saw
 mid-decode freezes near the length cap during long effort=max sessions; after moving the whole
