@@ -27,12 +27,22 @@ All configurations scored **20/20 on quality**. Differences are speed only.
 | **+ Pennyroyal v2.5 runtime, online MXFP8, TP=2** | 2 | **308.3** | **339.1** | **3.01** |
 | same, production sampling (t=1.0, top_p 0.95, top_k 20) | 2 | 274.7 | 313.4 | 2.91 |
 | **+ Pennyroyal v2.5.1, cleaned quant map, no draft-quant flag** | 2 | **332.2** | 339 (n=5) | 2.4-2.55; 4.00 deterministic probe |
+| **+ Pennyroyal v2.5.2, after 48 h multi-agent soak** | 2 | 313 (greedy median) | — | 2.4–2.6; retract **0** |
+| **+ Pennyroyal v2.5.3 @ context 1,048,576 (YaRN×4), mf 0.92** | 2 | 326–332 (greedy) | — | 2.46–2.63; retract 0 |
+| same engine @ 786,432 (YaRN×3), mf 0.95, 16 running reqs | 2 | 264 (greedy, **under 5–7 agent load**) | — | 2.25–2.6; retract 0 |
 
-Context 786,432 (YaRN factor 3.0), KV pool 2,254,464 tokens, fp8_e4m3 KV,
-8 concurrent requests, PLE table resident in VRAM.
+Context history matters when comparing: the early rows ran 786,432 (YaRN factor 3.0),
+we stretched to 1,048,576 (YaRN×4) with v2.5.3, and moved back to 786,432/×3 — the extra
+stretch bought nothing on our workload (mid-decode stalls near the length cap at ×4; see
+the [v2.5.2–v2.5.3 field report](docs/FIELD-REPORT.md) and issue #9 follow-up). KV pool
+2,254,464 → 2,445,440 (mf 0.92) → 2,752,640 tokens (mf 0.95), fp8_e4m3 KV, PLE table
+resident in VRAM. Concurrency: 8 requests / 48 mamba slots early on; production now
+16 / 128 (head + agent fleet — see [TP2.md §5](docs/TP2.md)).
 
 Sampling matters: the same build measures 308.3 at temperature 0 and 274.7 at
-production sampling. Compare like with like.
+production sampling. And load matters: the 264 above is single-stream greedy while
+five to seven agents share the box; the same build measures 326–333 on a quiet engine.
+Compare like with like.
 
 ## Environment
 
@@ -63,15 +73,23 @@ torch 2.13.0+cu130, FlashInfer 0.6.17, Python 3.12.13, 90 GB host RAM.
   digest-pinned snapshots with /proc truth, six read-only verify gates, one-command
   atomic rollback. Every engine change since is executed as snapshot -> edit ->
   restart through the supervisor -> verify.
+- **[Field report: v2.5.2 → v2.5.3 under production](docs/FIELD-REPORT.md)** — the
+  48 h soak, the six-gate regression runs, the YaRN×4 → YaRN×3 / 1M → 768K move and
+  why we went back, the mf-0.95 KV growth, and three upstream notes (mf↔hicache,
+  NIXL namespace field drift, agentic concurrency).
 
 ## What we did not verify
 
 Stated plainly so nobody builds on sand:
 
-- **Multi-agent throughput** (partly closed). First concurrent A/B on v2.5.1:
+- **Multi-agent throughput** (largely closed). First concurrent A/B on v2.5.1:
   8 agent-style lanes give 1,228 tok/s aggregate (median 156 tok/s per lane)
-  vs 886 (148/lane) at 6 lanes — our TP=2 admission 8 already dominates the
-  upstream C6-style six-request profile. A proper load report is still pending.
+  vs 886 (148/lane) at 6 lanes. Continuous production since then runs the whole
+  fleet against the head 24/7; over 10 days: ~1.65B unique tokens through ~140k
+  model steps, server-side prefix-cache hit ≈ 98.7 % (from
+  `uncached_prompt_tokens_histogram` vs `prompt_tokens_total`), retract 0
+  throughout the soaks. The admission path, not the cache, was our bottleneck —
+  see the concurrency note in [TP2.md §5](docs/TP2.md).
 - **Long-uptime accept stability** (improved evidence). Production runs
   `--mamba-track-interval 256`; hourly accept medians held 2.3-2.5 across a
   40 h uptime window (~24k decode samples/hour in busy hours, retract count 0).

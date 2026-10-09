@@ -52,6 +52,13 @@ This also frees roughly 51 GB of host RAM, which is what lets you keep HiCache.
 Prefill of a long context needs several GiB of working buffers above the static
 allocation, and `nvidia-smi` samples too slowly to show the peak.
 
+> **Update (v2.5.3).** We later raised this to 0.92 then 0.95 with no OOM/Xid and
+> retract 0 under continuous multi-agent load; KV pool grew 2,254,464 → 2,445,440 →
+> 2,752,640 tokens and single-stream greedy rose into the 326–333 range. The catch is
+> §4 below: at higher `mem-fraction` the engine warns that the HiCache host pool is
+> smaller than the device pool. 0.88 remains the safe default if you cannot raise the
+> host tier; 0.95 is our production number once you can.
+
 ### 4. Drop the NIXL storage backend
 
 `--hicache-storage-backend nixl` fails with `Failed to create NIXL backend` unless
@@ -70,6 +77,15 @@ max_running_requests is capped to 4 by the mamba state cache
 
 Five slots per request, so eight concurrent requests need at least 40 slots. We set
 `--max-mamba-cache-size 48`. Cost: about 1.3 GB of VRAM and 157k KV tokens.
+
+> **Update (v2.5.3, agentic serving).** For a head-plus-fleet box we now pass
+> `--max-running-requests 16 --max-mamba-cache-size 128`. Two gotchas we hit:
+> (a) `max-running-requests` above what the Mamba cache can back is silently floored
+> to `⌊max_mamba_cache_size / 5⌋`, so bump both together; (b) the value that goes into
+> the fork's NIXL namespace `--field "max_mamba_cache_size=…"` is hand-maintained and
+> can drift from the real CLI flag — ours said 24 for weeks while the engine ran 128,
+> meaning two different configs could share one cache directory. Audit the leaf launch
+> script's `--field` entries against the actual flags (see [FIELD-REPORT.md](FIELD-REPORT.md)).
 
 ### 6. Match the context stretch to the context length
 
