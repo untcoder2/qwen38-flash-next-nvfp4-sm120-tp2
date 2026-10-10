@@ -1,11 +1,14 @@
 /* Kimi Token Ops — ui_core (js/app.js)
-   Каркас: hero с count-up, live-свежесть данных, статус сервера,
-   graceful-деградация без data.js / ECharts, делегирование графиков в window.DASH_CHARTS. */
+   Каркас: hero с count-up, live-свежесть данных, статус сервера, селектор
+   периода (7/14/30/90/365/всё, выбор в localStorage), graceful-деградация без
+   data.js / ECharts, делегирование графиков в window.DASH_CHARTS. */
 (function () {
   "use strict";
 
   var COUNTUP_MS = 1200;
   var REL_TICK_MS = 20000;
+  var PERIOD_STORE_KEY = "kimi-dash-period";
+  var PERIOD_DEFAULT = 30;
 
   var nfInt = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 });
   var nfPct = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -89,8 +92,10 @@
 
     var period = $("hero-period");
     var days = num(dash.window_days);
-    if (period && days !== null && days > 0) {
-      period.textContent = "окно: " + nfInt.format(days) + " дн";
+    if (period) {
+      period.textContent = (days !== null && days > 0)
+        ? "окно: " + nfInt.format(days) + " дн"
+        : "окно: всё время";
     }
 
     var srv = dash.server || {};
@@ -149,6 +154,59 @@
       setError("графики не отрисованы: " + (e && e.message ? e.message : String(e)));
       annotateEmptyCharts("графика остановилась на ошибке");
     }
+  }
+
+  /* ================= селектор периода ======================================
+     Держим исходный window.DASH без усечений; выбранное окно (в днях, 0 = всё
+     время) сохраняется в localStorage и применяется пересчётом дневных рядов
+     (DASH_CHARTS.slice) — hero-цифры и все графики обновляются на клиенте. */
+  var PERIODS = [7, 14, 30, 90, 365, 0];
+  var state = { dash: null, period: PERIOD_DEFAULT };
+
+  function loadPeriod() {
+    try {
+      var v = parseInt(window.localStorage.getItem(PERIOD_STORE_KEY), 10);
+      if (PERIODS.indexOf(v) >= 0) return v;
+    } catch (e) { /* приватный режим — дефолт */ }
+    return PERIOD_DEFAULT;
+  }
+
+  function savePeriod(p) {
+    try { window.localStorage.setItem(PERIOD_STORE_KEY, String(p)); } catch (e) { }
+  }
+
+  function currentView() {
+    var api = window.DASH_CHARTS;
+    if (api && typeof api.slice === "function") {
+      try {
+        return api.slice(state.dash, state.period);
+      } catch (e) {
+        setError("пересчёт периода: " + (e && e.message ? e.message : String(e)));
+      }
+    }
+    return state.dash; // нет charts.js — период не пересчитывается, данные как есть
+  }
+
+  function renderHero() {
+    fillHero(currentView());
+  }
+
+  function renderCharts() {
+    initCharts(currentView());
+  }
+
+  function bindPeriodControl() {
+    var sel = $("period-select");
+    if (!sel) return;
+    sel.value = String(state.period);
+    sel.addEventListener("change", function () {
+      var p = parseInt(sel.value, 10);
+      state.period = PERIODS.indexOf(p) >= 0 ? p : PERIOD_DEFAULT;
+      sel.value = String(state.period);
+      savePeriod(state.period);
+      renderHero();
+      renderCharts();
+    });
   }
 
   function observeReveal() {
@@ -213,15 +271,19 @@
       return;
     }
 
+    state.dash = dash;
+    state.period = loadPeriod();
+    bindPeriodControl();
+
     startLiveFreshness(dash);
-    fillHero(dash);
+    renderHero();
     observeReveal();
 
     // charts.js объявлен после app.js — ждём полной загрузки скриптов
     if (document.readyState === "complete") {
-      initCharts(dash);
+      renderCharts();
     } else {
-      window.addEventListener("load", function () { initCharts(dash); });
+      window.addEventListener("load", renderCharts);
     }
   }
 

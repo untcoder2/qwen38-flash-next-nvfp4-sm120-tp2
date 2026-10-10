@@ -548,6 +548,103 @@
     }
   }
 
+  /* ================= выбор периода — пересчёт из дневных рядов ============ */
+  /* Окно считается календарно от самой свежей даты в wire.days
+   * (0 = всё время). Тоталы, проекты и цены заново суммируются по строкам days,
+   * серверные кумулятивные счётчики (chart-server) периоду не подлежат. */
+  function shiftDateStr(ds, deltaDays) {
+    var y = +ds.slice(0, 4), m = +ds.slice(5, 7) - 1, d = +ds.slice(8, 10);
+    var t = Date.UTC(y, m, d) + deltaDays * 86400000;
+    return new Date(t).toISOString().slice(0, 10);
+  }
+  function within(ds, cutoff) {
+    return cutoff === null || String(ds) >= cutoff;
+  }
+  function sumDays(rows, cutoff) {
+    var t = { steps: 0, prompt: 0, gen: 0, cache_read: 0 };
+    (rows || []).forEach(function (d) {
+      if (!d || !d.date || !within(d.date, cutoff)) return;
+      t.steps += num(d.steps, 0);
+      t.prompt += num(d.prompt, 0);
+      t.gen += num(d.gen, 0);
+      t.cache_read += num(d.cache_read, 0);
+    });
+    return t;
+  }
+  function sliceDash(dash, days) {
+    dash = (dash && typeof dash === 'object') ? dash : {};
+    var wire = dash.wire || {};
+    var allDays = Array.isArray(wire.days) ? wire.days.filter(function (d) { return d && d.date; }) : [];
+    if (!allDays.length) {
+      /* нет дневной разбивки (старый data.js) — показываем как есть */
+      return dash;
+    }
+    var cutoff = null;
+    if (days > 0) cutoff = shiftDateStr(allDays[allDays.length - 1].date, -(days - 1));
+
+    var win = allDays.filter(function (d) { return within(d.date, cutoff); });
+    var t = sumDays(win, null);
+    t.cache_hit_pct = t.prompt ? Math.round(t.cache_read / t.prompt * 1000) / 10 : 0;
+
+    /* проекты: суммируем их собственные дневные ряды; у старых форматов без
+     * days проект попадает только в окно «всё время» */
+    var projects = (Array.isArray(wire.projects) ? wire.projects : [])
+      .map(function (p) {
+        if (!p || !p.ws) return null;
+        if (Array.isArray(p.days)) {
+          var s = sumDays(p.days, cutoff);
+          return { ws: p.ws, steps: s.steps, prompt: s.prompt, gen: s.gen, cache_read: s.cache_read };
+        }
+        if (days > 0) return null;
+        return { ws: p.ws, steps: num(p.steps, 0), prompt: num(p.prompt, 0), gen: num(p.gen, 0), cache_read: num(p.cache_read, 0) };
+      })
+      .filter(function (p) { return p && (p.prompt + p.gen) > 0; })
+      .sort(function (a, b) { return (b.prompt + b.gen) - (a.prompt + a.gen); });
+
+    /* кэш-доля для биллинга: как на сервере — измеренный серверный hit-rate,
+     * с фолбэком на клиентский cache_read по окну */
+    var svInfo = (dash.server && dash.server.online && dash.server.info) || {};
+    var srvHit = num(svInfo.cache_hit_pct, NaN);
+    var effCr = isFinite(srvHit)
+      ? Math.round(t.prompt * Math.min(Math.max(srvHit, 0), 100) / 100)
+      : Math.min(t.cache_read, t.prompt);
+
+    var cloud = ((dash.costs && dash.costs.cloud) || []).map(function (r) {
+      var est = effCr / 1e6 * num(r.cached_in_usd, 0)
+        + (t.prompt - effCr) / 1e6 * num(r.in_usd, 0)
+        + t.gen / 1e6 * num(r.out_usd, 0);
+      return Object.assign({}, r, { est_usd: Math.round(est * 100) / 100 });
+    }).sort(function (a, b) { return b.est_usd - a.est_usd; });
+
+    /* электричество: активные дни окна × 24 ч × мощность (константы от сервера) */
+    var pw = (dash.costs && dash.costs.power) || {};
+    var avgW = num(pw.avg_w, 700), rubKwh = num(pw.rub_per_kwh, 10);
+    var active = win.filter(function (d) {
+      return d.steps > 0 || (d.prompt + d.gen) > 0;
+    }).length;
+    var kwh = active * 24 * avgW / 1000;
+    var local = Object.assign({}, (dash.costs && dash.costs.local) || {}, {
+      kwh: Math.round(kwh * 10) / 10,
+      rub: Math.round(kwh * rubKwh),
+      note: 'оценка по активным дням выбранного периода: ' + active + ' дн × 24 ч'
+    });
+
+    return Object.assign({}, dash, {
+      window_days: days > 0 ? days : null,
+      window_start: cutoff,
+      wire: Object.assign({}, wire, {
+        totals: t,
+        projects: projects,
+        days: win
+      }),
+      costs: Object.assign({}, dash.costs, {
+        totals: { prompt: t.prompt, gen: t.gen, cache_read: effCr },
+        cloud: cloud,
+        local: local
+      })
+    });
+  }
+
   /* ================= init =================================================== */
   function init(root, dash) {
     root = root || document;
@@ -587,6 +684,7 @@
   window.DASH_CHARTS = {
     init: init,
     dispose: disposeAll,
+    slice: sliceDash, // пересчёт window.DASH на выбранное окно (пользуется ui_core)
     PALETTE: C // только для отладки; ui_core отсюда цвета не берёт
   };
 })();

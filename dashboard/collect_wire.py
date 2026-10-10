@@ -8,7 +8,10 @@
 Модель берётся из ближайшей предшествующей записи llm.request того же файла
 (поля model / modelAlias); если не видно — 'local/unknown'.
 Скорость: побайтовое чтение + префильтр подстрокой до json.loads + пропуск
-файлов с mtime старше окна."""
+файлов с mtime старше окна.
+days<=0 — без среза, полная история (для этого числа событий всё равно немного).
+У проектов есть своя разбивка по дням (projects[].days) — фронт пересчитывает
+период на клиенте, ничего не «режется» до 30 дней."""
 import glob
 import json
 import os
@@ -28,16 +31,17 @@ def _new_bucket():
     return {"steps": 0, "prompt": 0, "gen": 0, "cache_read": 0, "cache_creation": 0}
 
 
-def collect(days: float = 30) -> dict:
-    cutoff_ms = time.time() * 1000 - days * 86400 * 1000
+def collect(days: float = 0.0) -> dict:
+    cutoff_ms = 0.0 if days is None or days <= 0 else time.time() * 1000 - days * 86400 * 1000
     totals = _new_bucket()
     per_ws = {}
+    per_ws_day = {}   # ws -> {date -> bucket} — разбивка проекта по дням
     per_day = {}
     per_model = {}
 
     for wf in glob.glob(os.path.join(ROOT, "wd_*", "session_*", "agents", "*", "wire.jsonl")):
         try:
-            if os.stat(wf).st_mtime * 1000 < cutoff_ms:
+            if cutoff_ms and os.stat(wf).st_mtime * 1000 < cutoff_ms:
                 continue  # в файле не может быть событий свежее окна
             ws = wf.split(os.sep)[-5]
         except OSError:
@@ -88,6 +92,13 @@ def collect(days: float = 30) -> dict:
                 d["gen"] += g
                 d["cache_read"] += cr
 
+                pd = per_ws_day.setdefault(ws, {}).setdefault(
+                    date, {"steps": 0, "prompt": 0, "gen": 0, "cache_read": 0})
+                pd["steps"] += 1
+                pd["prompt"] += p
+                pd["gen"] += g
+                pd["cache_read"] += cr
+
                 m = per_model.setdefault(last_model or "local/unknown",
                                          {"steps": 0, "prompt": 0, "gen": 0})
                 m["steps"] += 1
@@ -95,7 +106,9 @@ def collect(days: float = 30) -> dict:
                 m["gen"] += g
 
     projects = [{"ws": ws, "steps": a["steps"], "prompt": a["prompt"], "gen": a["gen"],
-                 "cache_read": a["cache_read"]} for ws, a in per_ws.items()]
+                 "cache_read": a["cache_read"],
+                 "days": [dict(v, date=dt) for dt, v in sorted(per_ws_day.get(ws, {}).items())]}
+                for ws, a in per_ws.items()]
     projects.sort(key=lambda x: -(x["prompt"] + x["gen"]))
 
     day_list = [dict(d, date=date) for date, d in sorted(per_day.items())]
@@ -123,7 +136,7 @@ def collect(days: float = 30) -> dict:
 
 if __name__ == "__main__":
     import sys
-    d = float(sys.argv[1]) if len(sys.argv) > 1 else 30.0
+    d = float(sys.argv[1]) if len(sys.argv) > 1 else 0.0  # 0 = полная история
     data = collect(d)
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f:

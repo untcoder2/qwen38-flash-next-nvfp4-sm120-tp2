@@ -14,7 +14,7 @@ HOST = "molochko@192.168.2.127"
 KEY = os.path.expanduser("~/.ssh/molochko_deploy")
 
 def main() -> int:
-    days = float(sys.argv[1]) if len(sys.argv) > 1 else 30
+    days = float(sys.argv[1]) if len(sys.argv) > 1 else 0.0  # 0 = полная история
     data = collect_wire.collect(days)
     fd, tmp = tempfile.mkstemp(suffix=".json")
     try:
@@ -26,8 +26,11 @@ def main() -> int:
     finally:
         os.unlink(tmp)
     t = data["totals"]
+    span = (f"{data['days'][0]['date']}..{data['days'][-1]['date']}"
+            if data.get("days") else "нет данных")
     print(f"push_wire: шагов={t['steps']:,} prompt={t['prompt']:,} "
-          f"gen={t['gen']:,} за {days:g}д -> {HOST}:agent-tools/wire_push.json "
+          f"gen={t['gen']:,} за {'всю историю' if days <= 0 else f'{days:g}д'} "
+          f"[{span}] -> {HOST}:agent-tools/wire_push.json "
           f"[{'ok' if r.returncode == 0 else 'SCP FAIL ' + str(r.returncode)}]")
     return r.returncode
 

@@ -136,9 +136,10 @@ def _cloud_rows(prompt: int, gen: int, cache_read: int) -> list[dict]:
     return rows
 
 
-def collect(days: float = 30, wire_totals: dict | None = None) -> dict:
-    """Блок `costs` по контракту. days — окно в днях; wire_totals — готовые тоталы
-    {prompt, gen, cache_read} (опционально с `days` для загрузки железа)."""
+def collect(days: float = 0.0, wire_totals: dict | None = None) -> dict:
+    """Блок `costs` по контракту. days — окно в днях (0 = полная история);
+    wire_totals — готовые тоталы {prompt, gen, cache_read} (опционально с `days`
+    для загрузки железа)."""
     src = _wire_from_argument(wire_totals)
     wire_source = "argument"
     if src is None:
@@ -166,7 +167,7 @@ def collect(days: float = 30, wire_totals: dict | None = None) -> dict:
         hours_loaded = active * 24.0
         hours_note = f"активных дней в wire: {active} из {len(day_entries)} × 24 ч"
     else:
-        hours_loaded = float(days) * 24.0
+        hours_loaded = max(float(days), 1.0) * 24.0
         hours_note = f"оценка 24/7 за окно {days:g} дн."
     kwh = hours_loaded * AVG_POWER_W / 1000.0
     rub = kwh * RUB_PER_KWH
@@ -211,12 +212,12 @@ def summary_line(out: dict) -> str:
 
 def main(argv: list[str] | None = None) -> dict:
     argv = sys.argv[1:] if argv is None else list(argv)
-    days = 30.0
+    days = 0.0  # по умолчанию полная история (0 = без среза)
     if argv:
         try:
             days = float(argv[0])
         except ValueError:
-            print(f"[costs] не понял аргумент '{argv[0]}', беру 30 дней", file=sys.stderr)
+            print(f"[costs] не понял аргумент '{argv[0]}', беру полное окно", file=sys.stderr)
     out = collect(days)
     try:
         DATA_DIR.mkdir(parents=True, exist_ok=True)

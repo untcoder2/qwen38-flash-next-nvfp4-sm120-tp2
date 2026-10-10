@@ -20,7 +20,7 @@ from datetime import datetime
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(HERE, "data")
 OUT_PATH = os.path.join(HERE, "data.js")
-DEFAULT_DAYS = 30.0  # окно сбора; можно перебить аргументом --days
+DEFAULT_DAYS = 0.0  # окно сбора; 0 = полная история (фронт режет период сам); --days N перебивает
 
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
@@ -121,12 +121,28 @@ def normalize_wire(raw):
     for p in (sec.get("projects") if isinstance(sec.get("projects"), list) else []):
         if not isinstance(p, dict):
             continue
+        pdays = []
+        for d in (p.get("days") if isinstance(p.get("days"), list) else []):
+            if not isinstance(d, dict):
+                continue
+            date = _str(d.get("date"))
+            if len(date) != 10:
+                continue
+            pdays.append({
+                "date": date,
+                "steps": _int(d.get("steps")),
+                "prompt": _int(d.get("prompt")),
+                "gen": _int(d.get("gen")),
+                "cache_read": _int(d.get("cache_read")),
+            })
+        pdays.sort(key=lambda x: x["date"])
         projects.append({
             "ws": _str(p.get("ws"), "?"),
             "steps": _int(p.get("steps")),
             "prompt": _int(p.get("prompt")),
             "gen": _int(p.get("gen")),
             "cache_read": _int(p.get("cache_read")),
+            "days": pdays,
         })
     projects.sort(key=lambda x: -(x["prompt"] + x["gen"]))
 
@@ -197,6 +213,7 @@ def normalize_costs(raw):
             "est_usd": _float(row.get("est_usd")),
         })
     loc = sec.get("local") if isinstance(sec.get("local"), dict) else {}
+    pw = sec.get("power") if isinstance(sec.get("power"), dict) else {}
     return {
         "updated_at": _str(sec.get("updated_at")) or now_iso(),
         "totals": {
@@ -209,6 +226,11 @@ def normalize_costs(raw):
             "kwh": _float(loc.get("kwh")),
             "rub": _float(loc.get("rub")),
             "note": _str(loc.get("note")),
+        },
+        # константы «своего железа» — фронт пересчитывает ₽ на выбранный период
+        "power": {
+            "avg_w": _float(pw.get("avg_w"), 700.0),
+            "rub_per_kwh": _float(pw.get("rub_per_kwh"), 10.0),
         },
     }
 
@@ -291,12 +313,13 @@ def main(argv=None) -> int:
     ap.add_argument("--days", type=float, default=DEFAULT_DAYS,
                     help=f"окно сбора в днях (по умолчанию {DEFAULT_DAYS:g})")
     args = ap.parse_args(argv)
-    days = max(args.days, 0.01)
+    days = args.days if args.days > 0 else 0.0  # 0 = полная история
 
     statuses = {}
     dash = {
         "generated_at": now_iso(),
-        "window_days": int(days) if float(days).is_integer() else days,
+        # null = полная история; конкретное N — если сбор ограничен окном
+        "window_days": int(days) if float(days).is_integer() and days > 0 else None,
     }
     for name in SECTIONS:
         raw = status = None
@@ -329,7 +352,7 @@ def main(argv=None) -> int:
 
     w, s, c = dash["wire"], dash["server"], dash["costs"]
     tag = lambda n: {"ok": "OK", "push": "PUSH", "fallback": "FALLBACK", "empty": "EMPTY"}.get(statuses[n], statuses[n].upper())
-    print(f"[refresh] окно {days:g}д | data.js {size_kb:.1f} KB | {dash['generated_at']}")
+    print(f"[refresh] окно {'полное' if days <= 0 else f'{days:g}д'} | data.js {size_kb:.1f} KB | {dash['generated_at']}")
     print(f"[wire {tag('wire')}] steps={w['totals']['steps']:,} prompt={w['totals']['prompt']:,} "
           f"gen={w['totals']['gen']:,} cache_hit={w['totals']['cache_hit_pct']:.1f}% "
           f"проектов={len(w['projects'])} дней={len(w['days'])}")

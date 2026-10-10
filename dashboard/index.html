@@ -26,6 +26,15 @@
     </div>
     <div class="topbar-meta">
       <span id="generated-at" class="gen-at">ожидание данных…</span>
+      <label class="period-label" for="period-select">период</label>
+      <select id="period-select" class="select" title="Период, за который считаются токены, кэш, проекты и цены">
+        <option value="7">7 дней</option>
+        <option value="14">14 дней</option>
+        <option value="30">30 дней</option>
+        <option value="90">90 дней</option>
+        <option value="365">365 дней</option>
+        <option value="0">всё время</option>
+      </select>
       <button id="refresh-btn" class="btn" type="button" title="Пересобрать данные на сервере (wire-пуш + метрики + цены) и перезагрузить страницу">обновить данные</button>
     </div>
   </header>

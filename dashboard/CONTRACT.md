@@ -7,7 +7,7 @@
 - Графики: **Apache ECharts 5.x с CDN** (`https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js`). Если CDN недоступен — страница обязана показать вежливый баннер, а не белый экран.
 - Открывается как `file:///D:/llm/dashboard/index.html` → **никаких fetch() к json**! Все данные приходят из `data.js` (генерируется refresh.py), который объявляет `window.DASH`.
 - Язык интерфейса: русский. Тёмная тема, «2026»-эстетика: глубина чёрно-синего, aurora-градиенты, glass-карточки, неоновые акценты (янтарь #ffb454, циан #46e0ff, пурпур #b57bff), моноширинные крупные цифры (JetBrains Mono/system mono), плавные анимации появления.
-- Все скриптыcollectors'ов обязаны иметь функцию `collect(days: float) -> dict` и работать без аргументов CLI по умолчанию (30 дней).
+- Все скриптыcollectors'ов обязаны иметь функцию `collect(days: float) -> dict` и работать без аргументов CLI по умолчанию (полная история: `days<=0` = без среза; дневные ряды не обрезаются, период выбирается на фронте).
 
 ## Источники данных (реальность, проверена)
 1. Wire-логи Kimi Code: `~/.kimi-code/sessions/wd_*/session_*/agents/*/wire.jsonl`.
@@ -39,32 +39,36 @@
 ```js
 window.DASH = {
   generated_at: "2026-10-09T12:00:00+03:00",
-  window_days: 30,
-  wire: {                       // из collect_wire.collect()
+  window_days: 30 | null,             // null = полная история (DEFAULT_DAYS=0)
+  wire: {                             // из collect_wire.collect()
     updated_at: iso,
     totals: { steps, prompt, gen, cache_read, cache_creation, cache_hit_pct },
-    projects: [ { ws, steps, prompt, gen, cache_read } ],          // сортировка по убыв. prompt+gen
-    days:     [ { date:"YYYY-MM-DD", steps, prompt, gen, cache_read } ], // по возрастанию даты
+    projects: [ { ws, steps, prompt, gen, cache_read,
+                  days: [ { date, steps, prompt, gen, cache_read } ] } ],  // сортировка по убыв. prompt+gen
+    days:     [ { date:"YYYY-MM-DD", steps, prompt, gen, cache_read } ], // по возрастанию даты, ПОЛНАЯ история
     models:   { "<model_id>": { steps, prompt, gen } }             // опционально, если модель видна в логах
   },
-  server: {                     // из collect_server.collect()
+  server: {                           // из collect_server.collect()
     updated_at: iso, online: bool,
-    counters: { prompt_total, generation_total },                  // int
+    counters: { prompt_total, generation_total },                  // int, «с запуска» — периоду не подлежит
     info: { max_total_num_tokens, /* что удалось вытянуть */ }
   },
-  costs: {                      // из collect_costs.collect()
+  costs: {                            // из collect_costs.collect()
     updated_at: iso,
     totals: { prompt, gen, cache_read },                           // те же, что в wire (для расчёта)
     cloud: [ { vendor, model, in_usd, cached_in_usd, out_usd, est_usd } ],
-    local: { kwh, rub, note }
+    local: { kwh, rub, note },
+    power: { avg_w, rub_per_kwh }     // константы железа: фронт пересчитывает ₽ на выбранный период
   }
 }
 ```
 
 ## КОНТРАКТ UI
 - `js/app.js` (ui_core): грузит `data.js`, проверяет `window.DASH`, рисует hero-блок с
-  big-number-анимацией (count-up), статус-бар «обновлено N мин назад», секцию ошибок, вызывает
-  `window.DASH_CHARTS.init(document, DASH)` если таковой зарегистрирован.
+  big-number-анимацией (count-up), статус-бар «обновлено N мин назад», секцию ошибок, селектор
+  периода `#period-select` (7/14/30/90/365/0=всё, выбор в localStorage `kimi-dash-period`),
+  вызывает `window.DASH_CHARTS.init(document, view)`, где `view = DASH_CHARTS.slice(DASH, periodDays)`
+  — пересчёт тоталов/проектов/цен из дневных рядов на клиенте.
 - `js/charts.js` (ui_charts): объявляет `window.DASH_CHARTS = { init(root, dash){...} }` и строит ECharts-карты
   в контейнеры, которые готовит ui_core строго с id:
   `chart-projects` (donut по проектам), `chart-days` (stacked bar prompt/gen по дням),
