@@ -31,30 +31,36 @@ DATA_DIR = BASE_DIR / "data"
 
 # ---------------------------------------------------------------------------
 # Облачные прайсы, USD за 1M токенов. Актуальный модельный ряд, сверено с
-# публичными прайс-агрегаторами 2026-10-09 (BenchLM / ModelPricing / mem0 /
-# pricepertoken и пр.). cached_in с плашкой «~» — оценка ~10% от входа, когда
-# вендор не публикует кэш-тариф в агрегаторах; реальный кэш обычно ещё дешевле.
+# живыми прайс-страницами/агрегаторами 2026-10-11 (BenchLM / OpenRouter /
+# pricepertoken / coCode Zen / llm-stats / economize.cloud и пр.). cached_in
+# с плашкой «~» — оценка ~10% от входа, когда вендор не публикует кэш-тариф
+# в агрегаторах; реальный кэш обычно ещё дешевле.
 # ---------------------------------------------------------------------------
 PRICES = [
-    # vendor, model, in / cached_in / out за 1M токенов (USD)
-    {"vendor": "OpenAI",      "model": "GPT-6 Astra",       "in_usd": 10.00, "cached_in_usd": 1.00,  "out_usd": 50.00, "note": "флагман OpenAI; cache-write $12.50"},
-    {"vendor": "OpenAI",      "model": "GPT-6 Sol",         "in_usd": 2.00,  "cached_in_usd": 0.20,  "out_usd": 10.00, "note": "вдвое дешевле GPT-5.6 Sol"},
+    # vendor, model, in / cached_in / out за 1M токенов (USD), проверено 11.10.26
+    {"vendor": "OpenAI",      "model": "GPT-6 Astra",       "in_usd": 10.00, "cached_in_usd": 1.00,  "out_usd": 50.00, "note": "флагмен-линейка OpenAI; cache-write $12.50; >272K: 2x/1.5x"},
+    {"vendor": "OpenAI",      "model": "GPT-6.1 Sol",       "in_usd": 2.00,  "cached_in_usd": 0.10,  "out_usd": 10.00, "note": "текущий флагман открытого API (DevDay 29.09); GPT-6.1 Astra отменена; cache-write $2.50; >272K: $4/$0.20/$15"},
+    {"vendor": "OpenAI",      "model": "GPT-6 Sol",         "in_usd": 2.00,  "cached_in_usd": 0.20,  "out_usd": 10.00, "note": "прежний Sol: кэш вдвое дороже 6.1; >272K: 2x/1.5x"},
     {"vendor": "OpenAI",      "model": "GPT-6 Luna",        "in_usd": 0.10,  "cached_in_usd": 0.01,  "out_usd": 0.50,  "note": "бюджетный класс"},
-    {"vendor": "Anthropic",   "model": "Claude Opus 5.5",   "in_usd": 4.00,  "cached_in_usd": 0.20,  "out_usd": 20.00, "note": "флагман Anthropic (22.09.26); cache-write $5"},
-    {"vendor": "Anthropic",   "model": "Claude Sonnet 5",   "in_usd": 2.00,  "cached_in_usd": 0.30,  "out_usd": 10.00, "note": "кэш ~"},
-    {"vendor": "Anthropic",   "model": "Claude Haiku 4.5",  "in_usd": 1.00,  "cached_in_usd": 0.10,  "out_usd": 5.00,  "note": "быстрый; кэш ~"},
-    {"vendor": "Moonshot AI", "model": "Kimi K3",           "in_usd": 3.00,  "cached_in_usd": 0.30,  "out_usd": 15.00, "note": "1M контекста, input видео/картинки"},
-    {"vendor": "Moonshot AI", "model": "Kimi K2.7 Code",    "in_usd": 0.95,  "cached_in_usd": 0.10,  "out_usd": 4.00,  "note": "агентский кодинг; кэш ~"},
+    {"vendor": "Anthropic",   "model": "Claude Fable 5",    "in_usd": 10.00, "cached_in_usd": 1.00,  "out_usd": 50.00, "note": "legacy: кэш-риды $1.00 (у 5.1 — $0.25); cache-write $12.50"},
+    {"vendor": "Anthropic",   "model": "Claude Fable 5.1",  "in_usd": 10.00, "cached_in_usd": 0.25,  "out_usd": 50.00, "note": "запущен 01.09.26; кэш-риды урезаны с $1.00; типичные Fable-нагрузки ~−25%"},
+    {"vendor": "Anthropic",   "model": "Claude Opus 5.5",   "in_usd": 4.00,  "cached_in_usd": 0.20,  "out_usd": 20.00, "note": "Opus 5.5 (22.09.26); cache-write $5"},
+    {"vendor": "Anthropic",   "model": "Claude Sonnet 5.5", "in_usd": 2.00,  "cached_in_usd": 0.10,  "out_usd": 10.00, "note": "сменил Sonnet 5; кэш-риды упали $0.20→$0.10 (07.10.26)"},
+    {"vendor": "Anthropic",   "model": "Claude Haiku 5.5",  "in_usd": 0.10,  "cached_in_usd": 0.01,  "out_usd": 0.50,  "note": "с 07.10.26, в 10 раз дешевле Haiku 4.5; промпт >100K: $0.50/$0.05/$2.50"},
+    {"vendor": "Moonshot AI", "model": "Kimi K3",           "in_usd": 3.00,  "cached_in_usd": 0.30,  "out_usd": 15.00, "note": "официальный прайс Moonshot (1M контекста, input видео/картинки)"},
+    {"vendor": "Moonshot AI", "model": "Kimi K2.7 Code",    "in_usd": 0.95,  "cached_in_usd": 0.19,  "out_usd": 4.00,  "note": "агентский кодинг; кэш-хит официально $0.19"},
     {"vendor": "xAI",         "model": "Grok 4.7",          "in_usd": 2.00,  "cached_in_usd": 0.50,  "out_usd": 6.00,  "note": "промпт >200K: $4/$1/$12"},
-    {"vendor": "Google",      "model": "Gemini 3.1 Pro",    "in_usd": 2.00,  "cached_in_usd": 0.20,  "out_usd": 12.00, "note": "промпт >200K: $4/$18"},
-    {"vendor": "Google",      "model": "Gemini Flash",      "in_usd": 0.75,  "cached_in_usd": 0.075, "out_usd": 3.75,  "note": "3.6–3.8 Flash; кэш ~"},
-    {"vendor": "Google",      "model": "Gemini Flash-Lite", "in_usd": 0.10,  "cached_in_usd": 0.01,  "out_usd": 0.40,  "note": "самый дешёвый capable"},
-    {"vendor": "DeepSeek",    "model": "V4.1 Flash",        "in_usd": 0.30,  "cached_in_usd": 0.006, "out_usd": 1.20,  "note": "пик-тариф; офф-пик $0.15/$0.60"},
-    {"vendor": "Alibaba",     "model": "Qwen3.8-Max",       "in_usd": 2.00,  "cached_in_usd": 0.20,  "out_usd": 6.00,  "note": "флагман Alibaba Cloud (SG-region); кэш ~"},
-    {"vendor": "Alibaba",     "model": "Qwen3.8-Flash",     "in_usd": 0.15,  "cached_in_usd": 0.015, "out_usd": 0.47,  "note": "≈ та же модель, что на своём стенде; кэш ~"},
+    {"vendor": "Google",      "model": "Gemini 3.1 Pro",    "in_usd": 2.00,  "cached_in_usd": 0.20,  "out_usd": 12.00, "note": "промпт >200K: $4/$18; кэш −90%"},
+    {"vendor": "Google",      "model": "Gemini 3.8 Flash",  "in_usd": 0.75,  "cached_in_usd": 0.075, "out_usd": 3.75,  "note": "интро-цена до 31.12.26, с 01.01.27 вдвое; кэш ~"},
+    {"vendor": "Google",      "model": "Gemini 2.5 Flash-Lite", "in_usd": 0.10, "cached_in_usd": 0.01, "out_usd": 0.40, "note": "самый дешёвый capable (в прайсе ещё 3.5 FL: $0.30/$0.03/$2.50)"},
+    {"vendor": "DeepSeek",    "model": "V4.1 Flash",        "in_usd": 0.30,  "cached_in_usd": 0.006, "out_usd": 1.20,  "note": "пик-тариф; офф-пик $0.15/$0.003/$0.60; сменил V4 Pro 10.09"},
+    {"vendor": "Alibaba",     "model": "Qwen3.8-Max",       "in_usd": 2.00,  "cached_in_usd": 0.25,  "out_usd": 6.00,  "note": "флагман Alibaba Cloud (SG-region); кэш опубликован $0.25"},
+    {"vendor": "Alibaba",     "model": "Qwen3.8-Flash",     "in_usd": 0.15,  "cached_in_usd": 0.016, "out_usd": 0.47,  "note": "≈ та же модель, что на своём стенде; кэш $0.016 (08.10)"},
+    {"vendor": "Z.ai",        "model": "GLM-5.3",           "in_usd": 1.40,  "cached_in_usd": 0.26,  "out_usd": 4.40,  "note": "флагман Zhipu с 14.08.26; кэш-риды $0.26 (22.09, 08.10)"},
 ]
 
-PRICE_NOTE = ("Цены облачников — публичные прайс-агрегаторы, сверено 2026-10-09 (Qwen 09.10); "
+PRICE_NOTE = ("Цены облачников — живые прайс-страницы/агрегаторы, сверено 2026-10-11 "
+              "(BenchLM 08–10.10, OpenRouter/CoCode Zen 06–08.10, llm-stats/economize 08–10.10); "
               "кэш-вход с «~» — оценка ~10% от входа. Могут отставать от прайса "
               "вендора и не учитывать пик/офф-пик и ступени контекста — сверяйте.")
 
