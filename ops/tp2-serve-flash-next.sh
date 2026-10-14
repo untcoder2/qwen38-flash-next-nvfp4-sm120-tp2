@@ -152,7 +152,7 @@ launch_args=(serve \
   --max-mamba-cache-size 128 --gdn-mtp-cache-mode none \
   --linear-attn-decode-backend flashinfer --linear-attn-prefill-backend flashinfer \
   --mamba-track-interval "$MAMBA_TRACK_INTERVAL" \
-  --enable-hierarchical-cache --hicache-size 24 --hicache-host-memory-mode cache \
+  --enable-hierarchical-cache --hicache-size 4 --hicache-host-memory-mode cache \
   --hicache-write-policy write_through --hicache-io-backend kernel \
   --hicache-mem-layout page_first \
   "${PLE_ARGS[@]}" --trust-remote-code \
@@ -164,7 +164,8 @@ launch_args=(serve \
   --speculative-eagle-topk 1 --speculative-num-draft-tokens 8 \
   --speculative-adaptive --speculative-adaptive-config "$ADAPTIVE_CONFIG" \
   --speculative-draft-model-quantization unquant \
-  --watchdog-timeout 1800)
+  --watchdog-timeout 1800 \
+  --ssl-keyfile /tls/server.key --ssl-certfile /tls/server.pem)
 source "$SCRIPT_DIR/startup-summary.sh"
 pennyroyal_startup_summary "${launch_args[@]}"
 exec "$SGLANG_EXE" "${launch_args[@]}"

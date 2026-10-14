@@ -6,3 +6,8 @@ tuner/base.apk
 # приватные ключи WireGuard — в git никогда
 wireguard/
 
+
+.claude/skills/
+
+# sudo пароль GPU-хоста — только локально, в git никогда
+tmp/.sp
