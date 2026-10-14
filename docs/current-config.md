@@ -76,8 +76,9 @@ systemd sglang.service
 
 > **Сверено живьём 14.10.2026**: лист `serve-penny-301.sh`, образ **v3.0.1**, TLS на
 > :1234 (https + `penny/tls/ca.pem`), adaptive NEXTN (steps 3/7, draft 8),
-> `--hicache-size 4` (**в профиле уже лежит 10 — вступит при следующем рестарте**,
-> notes 14.10 вечер), **PLE в host pinned RAM** (`--ple-offload-embedding`),
+> `--hicache-size 4` (попытки 10 и 6 ночью 15.10 — креш-луп `Not enough host
+> memory`, откат на 4, HEALTH_OK 210 с; notes 15.10), **PLE в host pinned RAM**
+> (`--ple-offload-embedding`),
 > KV-пул **6 425 920** токенов, VRAM 93.7/97.9 GiB на карту, short_bench медиана
 > **405.6** — новая база. Подробности и откат: notes 14.10.
 

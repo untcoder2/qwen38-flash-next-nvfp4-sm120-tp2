@@ -1358,3 +1358,25 @@ URL возвращён владельцем на :1234; `kill` по pid-файл
   второй срабатывает через фолбэк. Выигрыш при этом измерен нулевой: хендшейк по LAN
   c key-auth = 0.17 с, с мультиплексированием те же 0.18 (доминирует spawn ssh.exe).
   Настоящий рычаг скорости хода — effort и токены, не транспорт.
+
+## 2026-10-15 ~01:05: HiCache 10 и 6 не влезли в RAM — креш-луп, откат на 4
+
+- Рестарт ради staged hicache=10: бут доходит до attach_hybrid_pool_to_unified_cache
+  и падает `ValueError: Not enough host memory available. Requesting 8.21 GB but
+  only have 5.77 GB free` (оба TP-ранга) → sigquit → systemd restart → цикл ~3,5 мин
+  (NRestarts=4 за ~13 мин).
+- Проба 6 по решению владельца: основной тир прошёл, упал ВТОРОЙ пул:
+  `Not enough host memory for QSA compressed HiCache. Requesting 0.62 GB but only
+  have 0.27 GB free`. При 6 основной тир съедает почти всё свободное, на QSA-добор
+  памяти уже нет.
+- Откат на 4 (`cp .bak-hc6-20261014-1852` поверх профиля + рестарт): HEALTH_OK 210 с,
+  hicache_size=4, KV 6 425 920, RAM 77G used / 11G avail, смоук-генерация OK.
+  Профили с 10 и 6 сохранены: `.bak-hc10-*` и `.bak-hc6fail-*`.
+- Уроки: (а) выделение host-тира проверяется ВО ВРЕМЯ бута, когда свободно ~5.8 GB,
+  а не после (где 12) — вчерашняя оценка «+6 GiB из 12GiB» была по неправильному
+  моменту; (б) запрос идёт от каждого TP-ранга, плюс есть отдельный QSA compressed
+  пул — «hicache-size N» ≠ «N GiB суммарно»; (в) health-гейту нужен ранний grep
+  "Not enough host memory", чтобы не ждать 30 минут в креш-лупе (теперь есть в
+  tmp/try_hc6.sh / rollback_hc4.sh). Если тему поднимать снова — сначала освободить
+  RAM (page cache ~20G, root) или менять расклад PLE/пулов целиком, а не крутить
+  только hicache-size.
