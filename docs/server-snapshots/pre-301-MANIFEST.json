@@ -1,0 +1,367 @@
+{
+ "label": "pre-301",
+ "created": "2026-10-11T22:36:50Z",
+ "host": "molochko",
+ "container": {
+  "name": "penny",
+  "image_full": "sha256:81d4d3d19b21e30b895f57e3628a8dd82c02a52c17e6234f5f3ea7836fd31fb3",
+  "repo_tags_at_snapshot": [
+   "rollback:keep-253-ctx768-yarn3-mf095",
+   "rollback:keep-253-live",
+   "ghcr.io/jpezzulli/sglang-rtxpro6000:v2.5.3"
+  ],
+  "repo_digests_at_snapshot": [
+   "rollback@sha256:81d4d3d19b21e30b895f57e3628a8dd82c02a52c17e6234f5f3ea7836fd31fb3",
+   "ghcr.io/jpezzulli/sglang-rtxpro6000@sha256:81d4d3d19b21e30b895f57e3628a8dd82c02a52c17e6234f5f3ea7836fd31fb3"
+  ],
+  "state": "running",
+  "started": "2026-10-06T00:52:34.629123384Z",
+  "restart_policy": "no"
+ },
+ "processes": [
+  {
+   "pid": 2704157,
+   "cmdline": "docker run --rm --name penny --device /dev/nvidia0 --device /dev/nvidia1 --device /dev/nvidiactl --device /dev/nvidia-uvm --device /dev/nvidia-uvm-tools -v /usr/lib/x86_64-linux-gnu/libcuda.so.595.84:/nvdrv/libcuda.so.1:ro -v /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.595.84:/nvdrv/libnvidia-ml.so.1:ro -v /usr/lib/x86_64-linux-gnu/libnvidia-nvvm.so.595.84:/nvdrv/libnvidia-nvvm.so.4:ro -v /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.595.84:/nvdrv/libnvidia-ptxjitcompiler.so.1:ro -v /home/molochko/penny/tp2-serve-flash-next.sh:/opt/pennyroyal/configs/pennyroyal/serve-flash-next.sh:ro -v /home/molochko/penny/tp2-ple-backend.sh:/opt/pennyroyal/configs/pennyroyal/ple-backend.sh:ro -v /home/molochko/penny/tp2-chat-template.sh:/opt/pennyroyal/configs/pennyroyal/chat-template.sh:ro -e LD_LIBRARY_PATH=/nvdrv -e CUDA_VISIBLE_DEVICES=0,1 -e SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN=1 -e TARGET_MODEL=/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp -e SGLANG_SM120_ONLINE_MXFP8=true -e TRANSFORMERS_VERBOSITY=error -v /home/molochko/vllm-models:/home/molochko/vllm-models:ro -v /home/molochko/penny/cache:/cache -v /home/molochko/penny/nixl:/nixl --ipc=host --ulimit memlock=-1 -p 1234:8001 ghcr.io/jpezzulli/sglang-rtxpro6000:v2.5.3 next-plain",
+   "env": {}
+  },
+  {
+   "pid": 2704216,
+   "cmdline": "/opt/pennyroyal/.venv/bin/python /opt/pennyroyal/.venv/bin/sglang serve --warmups=structured_output --model-path /home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp --load-format safetensors --served-model-name qwen3.8-flash-next --host 0.0.0.0 --port 8001 --tp 2 --disable-custom-all-reduce --dtype bfloat16 --quantization modelopt_fp4 --kv-cache-dtype fp8_e4m3 --mem-fraction-static 0.95 --context-length 786432 --json-model-override-args {\"text_config\":{\"max_position_embeddings\":786432,\"rope_parameters\":{\"mrope_interleaved\":true,\"mrope_section\":[11,11,10],\"rope_type\":\"yarn\",\"rope_theta\":10000000,\"partial_rotary_factor\":0.25,\"factor\":3.0,\"original_max_position_embeddings\":262144}}} --page-size 64 --max-running-requests 16 --sleep-on-idle --chunked-prefill-size 4096 --mamba-radix-cache-strategy extra_buffer --mamba-ssm-dtype bfloat16 --max-mamba-cache-size 128 --gdn-mtp-cache-mode none --linear-attn-decode-backend flashinfer --linear-attn-prefill-backend flashinfer --mamba-track-interval 256 --enable-hierarchical-cache --hicache-size 24 --hicache-host-memory-mode cache --hicache-write-policy write_through --hicache-io-backend kernel --hicache-mem-layout page_first --no-ple-offload-embedding --trust-remote-code --chat-template /home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/chat_template.jinja --image-processor-backend pil --reasoning-parser qwen3 --tool-call-parser qwen3_coder --enable-request-time-stats-logging --enable-metrics --default-chat-template-kwargs {\"enable_thinking\":true,\"preserve_thinking\":true,\"reasoning_effort\":\"medium\"} --speculative-algorithm NEXTN --speculative-num-steps 3 --speculative-eagle-topk 1 --speculative-num-draft-tokens 4 --watchdog-timeout 1800",
+   "env": {
+    "TARGET_MODEL": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp",
+    "SGLANG_SM120_ONLINE_MXFP8": "true",
+    "CUDA_VISIBLE_DEVICES": "0,1",
+    "SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN": "1",
+    "LD_LIBRARY_PATH": "/usr/local/cuda-13.3/lib64:/nvdrv"
+   }
+  }
+ ],
+ "server_info": {
+  "model_path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp",
+  "sampling_defaults": "model",
+  "preferred_sampling_params": null,
+  "default_chat_template_kwargs": {
+   "enable_thinking": true,
+   "preserve_thinking": true,
+   "reasoning_effort": "medium"
+  },
+  "quantization": "modelopt_fp4",
+  "speculative_algorithm": "EAGLE",
+  "speculative_num_steps": 3,
+  "speculative_eagle_topk": 1,
+  "speculative_num_draft_tokens": 4,
+  "speculative_draft_model_quantization": "modelopt_fp4",
+  "context_length": 786432,
+  "max_running_requests": 16,
+  "mem_fraction_static": 0.95,
+  "kv_cache_dtype": "fp8_e4m3",
+  "tp_size": 2,
+  "chunked_prefill_size": 4096,
+  "mamba_track_interval": 256,
+  "max_mamba_cache_size": 128
+ },
+ "files": [
+  {
+   "path": "/home/molochko/penny/tp2-serve-flash-next.sh",
+   "size": 8352,
+   "mtime": "2026-10-05T23:54:27Z",
+   "sha256": "822bb9c59f1959f16333d7c0e21d50fa9c8f9747113658ef3847bdfc3fca77a5",
+   "copy": "files/_home_molochko_penny_tp2-serve-flash-next.sh"
+  },
+  {
+   "path": "/home/molochko/penny/tp2-chat-template.sh",
+   "size": 624,
+   "mtime": "2026-09-16T14:10:10Z",
+   "sha256": "cccb35c47302e96e502e4fb9a9236a728ed45574a24b1d2c2f3042517d6c5c77",
+   "copy": "files/_home_molochko_penny_tp2-chat-template.sh"
+  },
+  {
+   "path": "/home/molochko/penny/tp2-ple-backend.sh",
+   "size": 2541,
+   "mtime": "2026-09-16T13:38:37Z",
+   "sha256": "f6928f29ff320847dd5ff4658c10a4988a48c3545b624e8c81b34af98b46158a",
+   "copy": "files/_home_molochko_penny_tp2-ple-backend.sh"
+  },
+  {
+   "path": "/home/molochko/penny/serve-flash-next.sh",
+   "size": 7751,
+   "mtime": "2026-09-16T07:40:09Z",
+   "sha256": "e83d50f9818d61db14e5f52d379c12d4349ab297923cb54e8b10b96c76d0db87",
+   "copy": "files/_home_molochko_penny_serve-flash-next.sh"
+  },
+  {
+   "path": "/home/molochko/penny/serve-flash-next-frspec.sh",
+   "size": 8944,
+   "mtime": "2026-09-16T13:18:41Z",
+   "sha256": "c94e95baa7fd411936a37d7bff27319ffc5d23aed1ebc3f9984f0d80645e42f4",
+   "copy": "files/_home_molochko_penny_serve-flash-next-frspec.sh"
+  },
+  {
+   "path": "/home/molochko/vllm/serve-penny.sh",
+   "size": 1853,
+   "mtime": "2026-09-18T21:57:33Z",
+   "sha256": "98747837d680ef98777c0f16af891564227dea9732844b3d57303db94806c605",
+   "copy": "files/_home_molochko_vllm_serve-penny.sh"
+  },
+  {
+   "path": "/home/molochko/vllm/serve-active.sh",
+   "size": 379,
+   "mtime": "2026-09-11T15:30:53Z",
+   "sha256": "dd88e1270935cd98593c93a5925c37a03aea302649422f06531a738dbdc13a04",
+   "copy": "files/_home_molochko_vllm_serve-active.sh"
+  },
+  {
+   "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/config.json",
+   "size": 30785,
+   "mtime": "2026-09-11T17:14:01Z",
+   "sha256": "3c1d55d9ff9586a005028d677f8351a829caaa55c4f04a7dabe7ef6dbff96310",
+   "copy": "files/_home_molochko_vllm-models_Qwen3.8-Flash-Next-NVFP4-bf16mtp_config.json"
+  },
+  {
+   "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/generation_config.json",
+   "size": 202,
+   "mtime": "2026-09-07T03:29:42Z",
+   "sha256": "e70c136c1b78ddc1fb0905bac8e733a4dc448d4f852a5dd75143fffc70be550e",
+   "symlink_to": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-official/generation_config.json",
+   "copy": "files/_home_molochko_vllm-models_Qwen3.8-Flash-Next-NVFP4-bf16mtp_generation_config.json"
+  },
+  {
+   "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/hf_quant_config.json",
+   "size": 21307,
+   "mtime": "2026-09-18T21:57:33Z",
+   "sha256": "8a4aacd17f38dd1401109095a8088279c347e9bfd1e3aa6bfc77ae7fa70d6a93",
+   "copy": "files/_home_molochko_vllm-models_Qwen3.8-Flash-Next-NVFP4-bf16mtp_hf_quant_config.json"
+  },
+  {
+   "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/model.safetensors.index.json",
+   "size": 32202982,
+   "mtime": "2026-09-11T17:14:01Z",
+   "sha256": "b7eb0e67b03de930b305ee604a15308326569ae4a0465cf529a9d1204548d17d"
+  },
+  {
+   "path": "/home/molochko/penny/tp2-serve-flash-next.sh.bak-0238",
+   "size": 8013,
+   "mtime": "2026-09-16T23:38:31Z",
+   "sha256": "47b8ab7db77f6d46776153c47ffe5ee84597bd7a779728158a75d779951950c7",
+   "copy": "files/_home_molochko_penny_tp2-serve-flash-next.sh.bak-0238"
+  },
+  {
+   "path": "/home/molochko/penny/tp2-serve-flash-next.sh.bak-0244",
+   "size": 8013,
+   "mtime": "2026-09-16T23:44:28Z",
+   "sha256": "ed74256de3cf8e6bc6f6bebf36c44348824f922669173712988280b00457f563",
+   "copy": "files/_home_molochko_penny_tp2-serve-flash-next.sh.bak-0244"
+  },
+  {
+   "path": "/home/molochko/penny/tp2-serve-flash-next.sh.bak-0440",
+   "size": 8012,
+   "mtime": "2026-09-17T01:40:06Z",
+   "sha256": "186ca1ca65fc81850abc11d3e2b0d59aff4c005872a1dde880eb8acb2a7c4905",
+   "copy": "files/_home_molochko_penny_tp2-serve-flash-next.sh.bak-0440"
+  },
+  {
+   "path": "/home/molochko/penny/tp2-serve-flash-next.sh.bak-0447",
+   "size": 8011,
+   "mtime": "2026-09-17T01:47:00Z",
+   "sha256": "0dc0a802f6a356bb1884a390858afef0517cfd1b5be633fdf53eeb9e4fc5e981",
+   "copy": "files/_home_molochko_penny_tp2-serve-flash-next.sh.bak-0447"
+  },
+  {
+   "path": "/home/molochko/penny/tp2-serve-flash-next.sh.bak-2256",
+   "size": 8011,
+   "mtime": "2026-09-16T19:56:58Z",
+   "sha256": "700a3c52fee5c2be7e159dea13a98e4d1dd56423ab0efc5f7d9a769020cce368",
+   "copy": "files/_home_molochko_penny_tp2-serve-flash-next.sh.bak-2256"
+  },
+  {
+   "path": "/home/molochko/penny/tp2-serve-flash-next.sh.bak-2302",
+   "size": 8012,
+   "mtime": "2026-09-16T20:02:30Z",
+   "sha256": "87f93c2d158a85bd7f4fe590aa5704ccaac0d40357ab4cc1bb267f3e62e00e5a",
+   "copy": "files/_home_molochko_penny_tp2-serve-flash-next.sh.bak-2302"
+  },
+  {
+   "path": "/home/molochko/penny/tp2-serve-flash-next.sh.bak-2309",
+   "size": 8012,
+   "mtime": "2026-09-16T20:09:56Z",
+   "sha256": "510fd73645c377fc8d117cce24c86d11b4f933e0fa9ba354341ddcd9f24bfc12",
+   "copy": "files/_home_molochko_penny_tp2-serve-flash-next.sh.bak-2309"
+  },
+  {
+   "path": "/home/molochko/penny/tp2-serve-flash-next.sh.bak-ctx1m-20260927-221308",
+   "size": 8042,
+   "mtime": "2026-09-25T02:11:59Z",
+   "sha256": "819fca538a03484b5c26804e241b6b48c6712296a91f16e5c4cf01b6f607ea35",
+   "copy": "files/_home_molochko_penny_tp2-serve-flash-next.sh.bak-ctx1m-20260927-221308"
+  },
+  {
+   "path": "/home/molochko/penny/tp2-serve-flash-next.sh.bak-ctx768-20261006-025013",
+   "size": 8352,
+   "mtime": "2026-09-28T23:59:17Z",
+   "sha256": "70d07b0bfd98334e2d1401d2864d79741f275650d312b70223cb59129ea0f52d",
+   "copy": "files/_home_molochko_penny_tp2-serve-flash-next.sh.bak-ctx768-20261006-025013"
+  },
+  {
+   "path": "/home/molochko/penny/tp2-serve-flash-next.sh.bak-effort",
+   "size": 8044,
+   "mtime": "2026-09-27T19:13:06Z",
+   "sha256": "39136daa0fc84d12d85a82ecef1b4b3c5be85896831734dc9fb34b073dc5bbea",
+   "copy": "files/_home_molochko_penny_tp2-serve-flash-next.sh.bak-effort"
+  },
+  {
+   "path": "/home/molochko/penny/tp2-serve-flash-next.sh.bak-fut-20260925",
+   "size": 8042,
+   "mtime": "2026-09-24T21:02:12Z",
+   "sha256": "9f4ccbb2936da0ec2661a708ca7d9a73c292fd46bf116ecac66f3b2900b27691",
+   "copy": "files/_home_molochko_penny_tp2-serve-flash-next.sh.bak-fut-20260925"
+  },
+  {
+   "path": "/home/molochko/penny/tp2-serve-flash-next.sh.bak-fut-20260925-000212",
+   "size": 7966,
+   "mtime": "2026-09-18T22:34:46Z",
+   "sha256": "9d1825a36a3e05a67d4633931f835a95ebd44dac7acbc4aa677f42b06a70b3fb",
+   "copy": "files/_home_molochko_penny_tp2-serve-flash-next.sh.bak-fut-20260925-000212"
+  },
+  {
+   "path": "/home/molochko/penny/tp2-serve-flash-next.sh.bak-mf090",
+   "size": 8042,
+   "mtime": "2026-09-24T21:02:12Z",
+   "sha256": "9f4ccbb2936da0ec2661a708ca7d9a73c292fd46bf116ecac66f3b2900b27691",
+   "copy": "files/_home_molochko_penny_tp2-serve-flash-next.sh.bak-mf090"
+  },
+  {
+   "path": "/home/molochko/penny/tp2-serve-flash-next.sh.bak-mrr-20261006-025427",
+   "size": 8350,
+   "mtime": "2026-10-05T23:50:13Z",
+   "sha256": "630e66be810a250da4d4815d15aeb517263b57e66d6ac29e16d00371978f3348",
+   "copy": "files/_home_molochko_penny_tp2-serve-flash-next.sh.bak-mrr-20261006-025427"
+  }
+ ],
+ "model_dir": {
+  "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp",
+  "n_files": 27,
+  "files": [
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/.gitattributes",
+    "size": 1635
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/README.md",
+    "size": 12109
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/chat_template.jinja",
+    "size": 8952
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/config.json",
+    "size": 30785
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/config.json.bak.pledtype",
+    "size": 30820
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/generation_config.json",
+    "size": 202
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/hf_quant_config.json",
+    "size": 21307
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/merges.txt",
+    "size": 3353259
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/model-00001-of-00010.safetensors",
+    "size": 3115991696,
+    "sha256": null
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/model-00002-of-00010.safetensors",
+    "size": 10005510304,
+    "sha256": null
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/model-00003-of-00010.safetensors",
+    "size": 10005364728,
+    "sha256": null
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/model-00004-of-00010.safetensors",
+    "size": 10006060112,
+    "sha256": null
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/model-00005-of-00010.safetensors",
+    "size": 10005362392,
+    "sha256": null
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/model-00006-of-00010.safetensors",
+    "size": 10005375328,
+    "sha256": null
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/model-00007-of-00010.safetensors",
+    "size": 10005956544,
+    "sha256": null
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/model-00008-of-00010.safetensors",
+    "size": 10005375200,
+    "sha256": null
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/model-00009-of-00010.safetensors",
+    "size": 5679113808,
+    "sha256": null
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/model-00010-of-00010.safetensors",
+    "size": 128587536,
+    "sha256": null
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/model-fp8-mtp-ple.safetensors",
+    "size": 53717551730,
+    "sha256": null
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/model-mtp-bf16.safetensors",
+    "size": 5214305456,
+    "sha256": null
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/model.safetensors.index.json",
+    "size": 32202982
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/preprocessor_config.json",
+    "size": 390
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/processor_config.json",
+    "size": 1191
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/tokenizer.json",
+    "size": 12809320
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/tokenizer_config.json",
+    "size": 17928
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/video_preprocessor_config.json",
+    "size": 385
+   },
+   {
+    "path": "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp/vocab.json",
+    "size": 6722759
+   }
+  ]
+ },
+ "pinned_tag": "rollback:keep-pre-301"
+}
