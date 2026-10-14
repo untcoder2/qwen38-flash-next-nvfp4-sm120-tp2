@@ -1,4 +1,4 @@
-import json, urllib.request
+import json, os, ssl, urllib.request
 
 p = r"C:/Users/abcd/.kimi-code/sessions/wd_vpncode_8de0214b57d9/session_061aadbe-7c26-4dbb-8f8a-c6d78cc0a9f9/agents/main/wire.jsonl"
 lines = open(p, encoding="utf-8").read().splitlines()
@@ -55,10 +55,11 @@ print(roles)
 json.dump(msgs, open(r"C:/Users/abcd/AppData/Local/Temp/vpncode_ctx.json", "w", encoding="utf-8"), ensure_ascii=False)
 
 def send(payload):
-    req = urllib.request.Request("http://192.168.2.127:1234/v1/chat/completions",
+    req = urllib.request.Request("https://192.168.2.127:1234/v1/chat/completions",
         data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"})
     try:
-        r = urllib.request.urlopen(req, timeout=600)
+        r = urllib.request.urlopen(req, timeout=600,
+                             context=ssl.create_default_context(cafile=os.environ.get("REPLAY_CA", "/home/molochko/penny/tls/ca.pem")))
         j = json.loads(r.read())
         return 200, str(j.get("usage"))[:140]
     except urllib.error.HTTPError as ex:

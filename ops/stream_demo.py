@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Живой стрим токенов с инфер-сервера в консоль — для замера/съёмки скорости.
 Открыть в отдельном окне терминала, запустить, снять экран вместе с виджетом."""
-import json, sys, time, urllib.request
+import json, os, ssl, sys, time, urllib.request
+_CTX = ssl.create_default_context(cafile=os.environ.get("DEMO_CA", "/home/molochko/penny/tls/ca.pem"))
 
-BASE = "http://192.168.2.127:1234"
+BASE = "https://192.168.2.127:1234"
 PROMPT = ("Напиши большой подробный рассказ про рыцаря, который идёт через "
           "неоновое подземелье: описания, диалоги, магия, битвы. Не менее 2000 слов.")
 
@@ -19,7 +20,7 @@ def stream(n_tokens=3000, effort=None):
                                  data=json.dumps(body).encode(),
                                  headers={"Content-Type": "application/json"})
     t0 = got = 0
-    with urllib.request.urlopen(req, timeout=300) as r:
+    with urllib.request.urlopen(req, timeout=300, context=_CTX) as r:
         for raw in r:
             line = raw.decode("utf-8", "replace").strip()
             if not line.startswith("data:"):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Golden-снапшот GPU-стенда penny. Читает всё, пишет только в --root (+ docker tag при --pin)."""
-import argparse, glob, hashlib, json, os, re, subprocess, sys, time, urllib.request
+import argparse, glob, hashlib, json, os, re, ssl, subprocess, sys, time, urllib.request
 
 MODEL_DIR = "/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp"
 KEY_FILES = [
@@ -88,7 +88,8 @@ srv_keys = ("model_path", "sampling_defaults", "preferred_sampling_params",
             "mem_fraction_static", "kv_cache_dtype", "tp_size", "chunked_prefill_size",
             "mamba_track_interval", "max_mamba_cache_size")
 try:
-    srv = json.loads(urllib.request.urlopen("http://127.0.0.1:1234/get_server_info", timeout=15).read().decode())
+    _ctx = ssl.create_default_context(cafile=os.environ.get("SNAPSHOT_CA", "/home/molochko/penny/tls/ca.pem"))
+    srv = json.loads(urllib.request.urlopen("https://127.0.0.1:1234/get_server_info", timeout=15, context=_ctx).read().decode())
     man["server_info"] = {k: srv.get(k) for k in srv_keys}
 except Exception as e:
     man["server_info"] = {"ERROR": repr(e)}

@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 """A/B харнес: канон NVFP4-bf16mtp vs ABLITERATED-NVFP4.
 Модусы: --tag X --out F [--only секция] (merge в существующий отчёт), --compare A B."""
-import argparse, json, os, random, re, statistics, subprocess, sys, time, urllib.request
+import argparse, json, os, random, re, ssl, statistics, subprocess, sys, time, urllib.request
 
-BASE = "http://127.0.0.1:1234"
+BASE = "https://127.0.0.1:1234"
+_CTX = ssl.create_default_context(cafile=os.environ.get("AB_CA", "/home/molochko/penny/tls/ca.pem"))
 MODEL = "qwen3.8-flash-next"
 
 def chat(messages, max_tokens=4096, temp=0.0, timeout=900):
@@ -14,7 +15,7 @@ def chat(messages, max_tokens=4096, temp=0.0, timeout=900):
                                  data=json.dumps(body).encode(),
                                  headers={"Content-Type": "application/json"})
     t0 = time.time()
-    j = json.loads(urllib.request.urlopen(req, timeout=timeout).read().decode("utf-8", "replace"))
+    j = json.loads(urllib.request.urlopen(req, timeout=timeout, context=_CTX).read().decode("utf-8", "replace"))
     dt = time.time() - t0
     m = (j.get("choices") or [{}])[0].get("message", {})
     txt = (m.get("content") or "") + "\n" + (m.get("reasoning_content") or "")

@@ -2,13 +2,15 @@
 # -*- coding: utf-8 -*-
 """Токен-билл за N дней по wire-логам всех сессий Kimi Code (main+subagents).
 Суммирует usage на step.end: prompt = inputOther+inputCacheRead+inputCacheCreation."""
-import glob, json, os, sys, time
+import glob, json, os, ssl, sys, time
 
 HOURS = float(sys.argv[1]) if len(sys.argv) > 1 else 96
 ROOT = os.path.expanduser("~/.kimi-code/sessions")
 cutoff_ms = time.time() * 1000 - HOURS * 3600 * 1000
 
 import subprocess
+
+_CTX = ssl.create_default_context(cafile=os.environ.get("BILL_CA", "/home/molochko/penny/tls/ca.pem"))
 tot = {"n": 0, "prompt": 0, "cache_read": 0, "gen": 0}
 per_ws = {}
 for wf in glob.glob(os.path.join(ROOT, "wd_*", "session_*", "agents", "*", "wire.jsonl")):
@@ -45,7 +47,8 @@ for ws, a in sorted(per_ws.items(), key=lambda x: -(x[1]["prompt"] + x[1]["gen"]
 # cross-check: живой счётчик текущего контейнера
 try:
     import urllib.request
-    body = urllib.request.urlopen("http://192.168.2.127:1234/metrics", timeout=8).read().decode()
+    body = urllib.request.urlopen("https://192.168.2.127:1234/metrics", timeout=8,
+                             context=ssl.create_default_context(cafile=os.environ.get("BILL_CA", "/home/molochko/penny/tls/ca.pem"))).read().decode()
     acc2 = {}
     for nm in ("sglang:prompt_tokens_total", "sglang:generation_tokens_total"):
         acc2[nm] = sum(float(l.split()[-1]) for l in body.splitlines() if l.startswith(nm))

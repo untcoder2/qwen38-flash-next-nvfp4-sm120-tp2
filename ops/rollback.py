@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Атомарный откат к снапшоту. Без --yes — только dry-run диффом, ничего не меняет."""
-import argparse, hashlib, json, os, shutil, subprocess, sys, time, urllib.request
+import argparse, hashlib, json, os, shutil, subprocess, ssl, sys, time, urllib.request
 
 OPS = "/home/molochko/penny/ops"
 ap = argparse.ArgumentParser()
@@ -90,10 +90,12 @@ print("запуск подан:", a.restart_cmd)
 
 # 7. Ждём здоровье (до 20 мин — NVFP4 + MTP грузятся не мгновенно)
 ok = False
+# Инфер с 14.10 только https; корень самоподписанный, пиним его явно (как в вотчдоге).
+_CTX = ssl.create_default_context(cafile=os.environ.get("ROLLBACK_CA", "/home/molochko/penny/tls/ca.pem"))
 for i in range(120):
     time.sleep(10)
     try:
-        urllib.request.urlopen("http://127.0.0.1:1234/health_generate", timeout=10)
+        urllib.request.urlopen("https://127.0.0.1:1234/health_generate", timeout=10, context=_CTX)
         ok = True; break
     except Exception:
         if i % 6 == 0:

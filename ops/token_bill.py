@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # Суммарный учёт токенов стенда: 48ч по ReqTimeStats + живые счётчики /metrics.
-import re, subprocess, urllib.request
+import os, re, ssl, subprocess, urllib.request
+
+_CTX = ssl.create_default_context(cafile=os.environ.get("BILL_CA", "/home/molochko/penny/tls/ca.pem"))
 
 out = subprocess.run(["docker", "logs", "penny", "--since", "48h"],
                      capture_output=True, text=True)
@@ -17,7 +19,8 @@ print(f"generated tokens:      {pout:>12,}")
 print(f"TOTAL processed:       {pin+pout:>12,}")
 
 try:
-    body = urllib.request.urlopen("http://127.0.0.1:1234/metrics", timeout=8).read().decode()
+    body = urllib.request.urlopen("https://127.0.0.1:1234/metrics", timeout=8,
+                             context=_CTX).read().decode()
     for name in ("sglang:prompt_tokens_total", "sglang:generation_tokens_total"):
         vals = [float(l.split()[-1]) for l in body.splitlines() if l.startswith(name)]
         print(f"{name} = {sum(vals):,.0f} (с запуска контейнера)")

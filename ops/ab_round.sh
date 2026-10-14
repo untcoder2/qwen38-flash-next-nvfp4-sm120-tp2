@@ -12,19 +12,19 @@ log(){ echo "$(date '+%F %T') $*" | tee -a "$LOG"; }
 health_wait(){
   for i in $(seq 1 120); do
     sleep 10
-    if curl -sf -m 8 http://127.0.0.1:1234/health_generate >/dev/null; then log "HEALTH_OK ($((i*10))s)"; return 0; fi
+    if curl -sf -m 8 --cacert /home/molochko/penny/tls/ca.pem https://127.0.0.1:1234/health_generate >/dev/null; then log "HEALTH_OK ($((i*10))s)"; return 0; fi
     [ $((i % 6)) -eq 0 ] && log "waiting health ${i}0s..."
   done
   return 1
 }
 smoke(){
   python3 - <<'PY'
-import json,urllib.request,sys
+import json,os,ssl,urllib.request,sys
 b={"model":"qwen3.8-flash-next","messages":[{"role":"user","content":"Скажи одно слово: ок"}],"max_tokens":24,"temperature":0,
    "chat_template_kwargs":{"reasoning_effort":"medium"}}
-r=urllib.request.Request("http://127.0.0.1:1234/v1/chat/completions",data=json.dumps(b).encode(),headers={"Content-Type":"application/json"})
+r=urllib.request.Request("https://127.0.0.1:1234/v1/chat/completions",data=json.dumps(b).encode(),headers={"Content-Type":"application/json"})
 try:
-    j=json.loads(urllib.request.urlopen(r,timeout=120).read())
+    j=json.loads(urllib.request.urlopen(r,timeout=120,context=ssl.create_default_context(cafile=os.environ.get("AB_CA","/home/molochko/penny/tls/ca.pem"))).read())
     c=j["choices"][0]["message"]["content"]
     sys.exit(0 if (c or j["choices"][0]["message"].get("reasoning_content")) else 1)
 except Exception as e:

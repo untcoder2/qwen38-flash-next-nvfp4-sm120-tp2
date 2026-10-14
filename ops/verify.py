@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Read-only валидация стенда против снапшота. Выход 0 = все гейты PASS."""
-import hashlib, json, os, re, statistics, subprocess, sys, time, urllib.error, urllib.request
+import hashlib, json, os, re, ssl, statistics, subprocess, sys, time, urllib.error, urllib.request
 
-BASE = "http://127.0.0.1:1234"
+BASE = os.environ.get("VERIFY_BASE", "https://127.0.0.1:1234")
+# Пин нашего корня: strict-проверка (Python 3.14) проходит только против перевыпущенного
+# 14.10 CA с keyUsage; со старым корнем все шесть гейтов валились молча.
+_CTX = ssl.create_default_context(cafile=os.environ.get("VERIFY_CA", "/home/molochko/penny/tls/ca.pem"))
 man_path = sys.argv[1]
 mark = "--mark" in sys.argv
 man = json.load(open(man_path, encoding="utf-8"))
@@ -17,7 +20,7 @@ def gate(name, ok, detail=""):
 def getj(url, data=None, timeout=60):
     req = urllib.request.Request(url, data=json.dumps(data).encode() if data is not None else None,
                                  headers={"Content-Type": "application/json"})
-    return json.load(urllib.request.urlopen(req, timeout=timeout))
+    return json.load(urllib.request.urlopen(req, timeout=timeout, context=_CTX))
 
 # G1 server_info == снапшот
 try:
@@ -31,7 +34,7 @@ except Exception as e:
 # G2 metrics живые
 try:
     def cnt():
-        t = urllib.request.urlopen(BASE + "/metrics", timeout=10).read().decode()
+        t = urllib.request.urlopen(BASE + "/metrics", timeout=10, context=_CTX).read().decode()
         m = re.search(r"^sglang:generation_tokens_total(?:\{[^}]*\})?\s+([\d.]+)", t, re.M)
         return float(m.group(1)) if m else None
     a1 = cnt()

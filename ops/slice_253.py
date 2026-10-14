@@ -2,14 +2,15 @@
 # -*- coding: utf-8 -*-
 """Срез v2.5.3 для публикации: скорость, кэш, префил-профиль, accept/retract, NIAHS.
 Пишет JSON на хост + печатает сводку. Только чтение/нагрузка-запросы, без рестартов."""
-import json, subprocess, sys, time
+import json, os, subprocess, sys, time
 sys.path.insert(0, "/home/molochko/penny/ops")
 out = {"version": "v2.5.3", "ts": time.strftime("%F %T"), "notes": []}
 
 # 1) шильдик + аптайм
 d = subprocess.run(["docker", "inspect", "penny", "--format", "{{.Config.Image}} {{.State.StartedAt}}"], capture_output=True, text=True).stdout.strip()
 out["image"] = d
-r = subprocess.run(["curl", "-s", "-m", "8", "http://127.0.0.1:1234/get_server_info"], capture_output=True, text=True)
+r = subprocess.run(["curl", "-s", "-m", "8", "--cacert", os.environ.get("SLICE_CA", "/home/molochko/penny/tls/ca.pem"),
+                  "https://127.0.0.1:1234/get_server_info"], capture_output=True, text=True)
 try:
     si = json.loads(r.stdout)
     out["server"] = {k: si.get(k) for k in ("mem_fraction_static", "context_length", "max_total_num_tokens", "enable_hierarchical_cache", "speculative_algorithm", "speculative_num_steps", "speculative_eagle_topk", "speculative_num_draft_tokens")}
@@ -36,9 +37,10 @@ except Exception as e:
     out["notes"].append(f"niahs json: {e}")
 
 # 5) token-билл за время жизни контейнера
-import urllib.request, re as _re
+import ssl, urllib.request, re as _re
 try:
-    body = urllib.request.urlopen("http://127.0.0.1:1234/metrics", timeout=8).read().decode()
+    body = urllib.request.urlopen("https://127.0.0.1:1234/metrics", timeout=8,
+                             context=ssl.create_default_context(cafile=os.environ.get("SLICE_CA", "/home/molochko/penny/tls/ca.pem"))).read().decode()
     acc = {}
     for nm in ("sglang:prompt_tokens_total", "sglang:generation_tokens_total"):
         acc[nm] = sum(float(l.split()[-1]) for l in body.splitlines() if l.startswith(nm))
