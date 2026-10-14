@@ -347,6 +347,11 @@ def main(argv=None) -> int:
         dash[name] = NORMALIZE[name](raw)
         statuses[name] = status
 
+    # «Коллектор отработал» != «статистика есть». Без этого переезд на https
+    # тихо превращает серверную секцию в нули с надписью OK (14.10, 9 часов).
+    if not dash["server"].get("online"):
+        statuses["server"] = "degraded"
+
     atomic_write(OUT_PATH, "window.DASH = " + json.dumps(dash, ensure_ascii=False) + ";\n")
     size_kb = os.path.getsize(OUT_PATH) / 1024
 

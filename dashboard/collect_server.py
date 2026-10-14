@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import ssl
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -31,6 +32,11 @@ from pathlib import Path
 BASE = os.environ.get("DASH_SERVER_BASE", "https://192.168.2.127:1234")
 TIMEOUT_S = 8.0
 HERE = Path(__file__).resolve().parent
+
+# Инфер с 14.10 отвечает только по https, лист самоподписанный (QwenHome-CA).
+# На стенде корень лежит здесь же; перебивается DASH_CACERT (на Windows —
+# certs/qwen-home-ca.pem из репозитория).
+CA_FILE = Path(os.environ.get("DASH_CACERT", str(Path.home() / "penny/tls/ca.pem")))
 
 # Prometheus-счётчики: суммируем СЕРИИ каждого по всем лейблам (контракт п.2)
 COUNTER_SERIES = {
@@ -70,11 +76,27 @@ _METRIC_LINE = re.compile(
 )
 
 
+def _ssl_context() -> ssl.SSLContext | None:
+    """None => схема http, контекст не нужен."""
+    if not BASE.startswith("https"):
+        return None
+    ctx = ssl.create_default_context()
+    if CA_FILE.exists():
+        ctx.load_verify_locations(cafile=str(CA_FILE))
+    return ctx  # без корня — проверка по системному доверию; self-signed упадёт громко
+
+
+_SSL_CTX = _ssl_context()
+
+
 def _fetch(path: str) -> str:
     req = urllib.request.Request(
         BASE + path, headers={"Accept": "text/plain, application/json"}
     )
-    with urllib.request.urlopen(req, timeout=TIMEOUT_S) as resp:
+    kwargs: dict = {"timeout": TIMEOUT_S}
+    if _SSL_CTX is not None:
+        kwargs["context"] = _SSL_CTX
+    with urllib.request.urlopen(req, **kwargs) as resp:
         return resp.read().decode("utf-8", "replace")
 
 

@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """gpu_widget.pyw — мини-виджет поверх всех окон: скорость SGLang-стенда.
 
-Данные каждые 5 с по HTTP (/metrics), плюс контекст самой свежей сессии
-Kimi Code из локальных wire-логов (best-effort, строка с «~»).
+Данные каждые 5 с по HTTPS (/metrics, пин QwenHome-CA), плюс контекст и число
+активных сессий Kimi Code из локальных wire-логов (best-effort, прочерк без логов).
 
 Управление: ЛКМ-перетаскивание — двигать; ПКМ — меню (прозрачность, свернуть
 на 60 с, выход); двойной клик — выход. Позиция и прозрачность сохраняются в
@@ -14,6 +14,7 @@ Kimi Code из локальных wire-логов (best-effort, строка с 
 import json
 import os
 import re
+import ssl
 import sys
 import threading
 import time
@@ -22,6 +23,14 @@ import urllib.request
 
 HOST = os.environ.get("GPU_WIDGET_HOST", "192.168.2.127:1234")
 POLL_S = 5.0
+# Инфер с 14.10 отвечает только по https, лист самоподписанный. Пиним корень из
+# репозитория (рядом с виджетом: ../../certs), env GPU_WIDGET_CA перебивает путь,
+# GPU_WIDGET_SCHEME=http возвращает старое поведение для локального стенда.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+CA_FILE = os.environ.get("GPU_WIDGET_CA") or os.path.normpath(
+    os.path.join(_HERE, "..", "..", "certs", "qwen-home-ca.pem"))
+_SCHEME = os.environ.get("GPU_WIDGET_SCHEME", "https")
+_CTX_WINDOW = int(os.environ.get("GPU_WIDGET_CTX", "786432"))
 RE_LINES = {
     "gen": r"^sglang:generation_tokens_total(?:\{[^}]*\})?\s+([\d.eE+\-]+)",
     "prompt": r"^sglang:prompt_tokens_total(?:\{[^}]*\})?\s+([\d.eE+\-]+)",
@@ -33,13 +42,29 @@ CFG_PATH = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")),
 WIRE_ROOT = os.path.expanduser(r"~/.kimi-code/sessions")
 
 
+def _ssl_ctx():
+    """None => схема http. Без найденного корня — проверка по системному доверию."""
+    if not _SCHEME.startswith("https"):
+        return None
+    ctx = ssl.create_default_context()
+    if os.path.exists(CA_FILE):
+        ctx.load_verify_locations(cafile=CA_FILE)
+    return ctx
+
+
+_CTX = _ssl_ctx()
+
+
 def _http(url, timeout=3.0):
     req = urllib.request.Request(url, headers={"User-Agent": "gpu-widget"})
-    return urllib.request.urlopen(req, timeout=timeout).read().decode(errors="replace")
+    kw = {"timeout": timeout}
+    if _CTX is not None:
+        kw["context"] = _CTX
+    return urllib.request.urlopen(req, **kw).read().decode(errors="replace")
 
 
 def _metrics():
-    txt = _http("http://%s/metrics" % HOST)
+    txt = _http("%s://%s/metrics" % (_SCHEME, HOST))
     out = {}
     for key, pat in RE_LINES.items():
         vals = [float(m) for m in re.findall(pat, txt, re.M)]
@@ -77,6 +102,28 @@ def _session_ctx(max_age_s=1200):
         return None
     except Exception:
         return None
+
+
+def _fresh_files(pattern, max_age_s):
+    """пути под pattern, mtime свежее max_age_s, самые новые первыми."""
+    import glob
+    now = time.time()
+    found = []
+    for f in glob.glob(pattern):
+        try:
+            t = os.path.getmtime(f)
+        except OSError:
+            continue
+        if now - t <= max_age_s:
+            found.append((t, f))
+    found.sort(reverse=True)
+    return [f for _, f in found]
+
+
+def _kimi_active(max_age_s=1200):
+    """сколько активных сессий Kimi Code: agents/*/wire.jsonl (это и main, и subagent'ы)."""
+    return len(_fresh_files(os.path.join(WIRE_ROOT, "wd_*", "session_*", "agents", "*", "wire.jsonl"),
+                            max_age_s))
 
 
 GPU_SSH = {"host": "192.168.2.127", "user": "molochko",
@@ -267,10 +314,14 @@ def gui():
                 bits = ["кэш %s" % ("%.0f%%" % (hit * 100) if hit is not None else "—")]
                 now = time.time()
                 if now - ctx_cache["t"] > 20:
-                    ctx_cache["v"] = _session_ctx()
+                    ctx_cache["v"] = {"ctx": _session_ctx(), "n": _kimi_active()}
                     ctx_cache["t"] = now
-                bits.append("ctx ~%.0f%% (~%dK)" % (ctx_cache["v"] / 786432 * 100, ctx_cache["v"] // 1000)
-                            if ctx_cache["v"] else "ctx —")
+                v = ctx_cache["v"] or {}
+                nk, ctx = v.get("n", 0), v.get("ctx")
+                # Kimi показан всегда, даже в нуле: бездействующая ветка — это
+                # прочерк, а не исчезнувшая строка.
+                bits.append("kimi %dаг ctx %s" % (
+                    nk, "~%.0f%%" % (ctx / _CTX_WINDOW * 100) if ctx else "—"))
                 l3.config(text=" · ".join(bits), fg="#8b949e")
             rows = gpoll.last
             if rows:
@@ -353,6 +404,8 @@ if __name__ == "__main__":
         g = GpuPoller().sample_once_blocking()
         print(json.dumps(r, ensure_ascii=False, default=str))
         print(json.dumps(g, ensure_ascii=False, default=str))
-        print("session ctx:", _session_ctx())
+        print("agents: kimi=%d | ctx: kimi=%s | ca=%s(%s) scheme=%s" % (
+            _kimi_active(), _session_ctx(), CA_FILE,
+            "есть" if os.path.exists(CA_FILE) else "НЕТ", _SCHEME))
         sys.exit(0 if (r.get("ok") and g.get("ok")) else 1)
     gui()
