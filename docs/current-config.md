@@ -57,7 +57,7 @@ systemd sglang.service
 | правка | зачем |
 |---|---|
 | `TP_SIZE=1` → `2` | обе карты |
-| `--ple-offload-embedding` → `--no-ple-offload-embedding` | таблица PLE (47.7 ГиБ) в VRAM, как у нас всегда было; освобождает хостовую RAM |
+| `--ple-offload-embedding` → `--no-ple-offload-embedding` | таблица PLE (47.7 ГиБ) в VRAM, как у нас всегда было; освобождает хостовую RAM. **С 14.10 обратно: `--ple-offload-embedding` (pinned RAM) — KV-пул вырос до 6.42M токенов, см. notes 14.10** |
 | `--mem-fraction-static 0.981` → `0.88` | 0.981 — одноплатное значение; 0.88 наше проверенное |
 | добавлен `--disable-custom-all-reduce` | **без него TP=2 падает**: `RuntimeError: invalid argument` в `get_graph_buffer_ipc_meta` |
 | убран `--hicache-storage-backend nixl` и его конфиг | NIXL не инициализируется, `Failed to create NIXL backend` |
@@ -73,6 +73,12 @@ systemd sglang.service
 > `--max-running-requests 16`, `--max-mamba-cache-size 128` — ниже исторический
 > блок эпохи v2.5.1, кто и когда поднимал mrr/mf и возвращал контекст с 1M —
 > в notes не записано.
+
+> **Сверено живьём 14.10.2026**: лист `serve-penny-301.sh`, образ **v3.0.1**, TLS на
+> :1234 (https + `penny/tls/ca.pem`), adaptive NEXTN (steps 3/7, draft 8),
+> `--hicache-size 4`, **PLE в host pinned RAM** (`--ple-offload-embedding`),
+> KV-пул **6 425 920** токенов, VRAM 93.7/97.9 GiB на карту, short_bench медиана
+> **405.6** — новая база. Подробности и откат: notes 14.10.
 
 ```
 --tp 2 --disable-custom-all-reduce --dtype bfloat16 --quantization modelopt_fp4
