@@ -30,13 +30,15 @@ All configurations scored **20/20 on quality**. Differences are speed only.
 | **+ Pennyroyal v2.5.2, after 48 h multi-agent soak** | 2 | 313 (greedy median) | — | 2.4–2.6; retract **0** |
 | **+ Pennyroyal v2.5.3 @ context 1,048,576 (YaRN×4), mf 0.92** | 2 | 326–332 (greedy) | — | 2.46–2.63; retract 0 |
 | same engine @ 786,432 (YaRN×3), mf 0.95, 16 running reqs | 2 | 264 (greedy, **under 5–7 agent load**) | — | 2.25–2.6; retract 0 |
+| **+ PLE to host-pinned RAM, v3.0.1, hicache 10 (KV ×2.6)** | 2 | **405.6** (greedy, n=5, quiet) | — | retract 0 |
 
 Context history matters when comparing: the early rows ran 786,432 (YaRN factor 3.0),
 we stretched to 1,048,576 (YaRN×4) with v2.5.3, and moved back to 786,432/×3 — the extra
 stretch bought nothing on our workload (mid-decode stalls near the length cap at ×4; see
 the [v2.5.2–v2.5.3 field report](docs/FIELD-REPORT.md) and issue #9 follow-up). KV pool
 2,254,464 → 2,445,440 (mf 0.92) → 2,752,640 tokens (mf 0.95), fp8_e4m3 KV, PLE table
-resident in VRAM. Concurrency: 8 requests / 48 mamba slots early on; production now
+resident in VRAM — then **6,425,920 on v3.0.1 after moving PLE to host-pinned RAM**
+([PLE-RAM.md](docs/PLE-RAM.md)). Concurrency: 8 requests / 48 mamba slots early on; production now
 16 / 128 (head + agent fleet — see [TP2.md §5](docs/TP2.md)).
 
 Sampling matters: the same build measures 308.3 at temperature 0 and 274.7 at
@@ -77,6 +79,10 @@ torch 2.13.0+cu130, FlashInfer 0.6.17, Python 3.12.13, 90 GB host RAM.
   48 h soak, the six-gate regression runs, the YaRN×4 → YaRN×3 / 1M → 768K move and
   why we went back, the mf-0.95 KV growth, and three upstream notes (mf↔hicache,
   NIXL namespace field drift, agentic concurrency).
+- **[PLE placement, revisited](docs/PLE-RAM.md)** — host-pinned RAM beats VRAM on
+  the v3.0.1 engine: KV pool ×2.6 to 6,425,920, no measurable prefill/decode cost,
+  and a correction of TP2.md §2, which published the opposite claim for the older
+  runtime.
 
 ## What we did not verify
 

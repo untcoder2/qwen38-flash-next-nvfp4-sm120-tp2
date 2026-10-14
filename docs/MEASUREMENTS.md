@@ -71,6 +71,21 @@ Two lessons. First, day-wide medians (150-170) and controlled benchmark medians
 content than any benchmark prompt. Do not compare across them. Second, the dips are
 days of heavy experimentation, not regressions — they recover the next day.
 
+## 2026-10-14: PLE to host-pinned RAM (v3.0.1)
+
+Method: `short_bench` (greedy, OSL 512, single stream, n=5, quiet box after the
+switch) and `ctx_speed` (169,608-token prompt, cold then warm). Both scripts
+drive the server over HTTPS with the local CA. Accept counters were fresh
+post-boot (no drift window); retract counted from journal since the restart: 0.
+
+| id | config | median | min | max | prefill cold / warm |
+|---|---|---|---|---|---|
+| PL1 | v3.0.1, PLE host-pinned, hicache 4 | **405.6** | 336.5 | 466.7 | 12.55 s / 0.34 s |
+
+The first run (336.5) is post-warmup straggler; the four after it sit 403–467.
+Reference rows for the same box with PLE in VRAM remain v2.5-era (332.2) — see
+the attribution caveat in [PLE-RAM.md](PLE-RAM.md): engine version changed too.
+
 ## Mistakes we made, so you do not repeat them
 
 **Wall-clock over HTTP is not throughput.** `curl` timing of a 1000-token

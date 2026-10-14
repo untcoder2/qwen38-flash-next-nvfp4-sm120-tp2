@@ -46,6 +46,15 @@ PLE_OFFLOAD_EMBEDDING=false
 
 This also frees roughly 51 GB of host RAM, which is what lets you keep HiCache.
 
+> **Update (v3.0.1, 2026-10-14): reversed on this box.** With the newer engine,
+> a dropped page cache and a small host tier, moving the table to CPU pinned
+> RAM cost nothing measurable and grew the KV pool ×2.6 to 6,425,920 tokens —
+> the PCIe lookup is ~35 MB/s at production prefill rates and hides under the
+> compute-bound MoE path, while the VRAM copy was silently spending 24 GiB per
+> card that KV wanted. The "pure loss" claim was correct only for the v2.5.x
+> era's bigger HiCache budget. Full numbers, traps, and the rollback:
+> [PLE-RAM.md](PLE-RAM.md).
+
 ### 3. Lower mem-fraction
 
 `0.981` is a single-card number. On two cards with prefill peaks use `0.88`.
