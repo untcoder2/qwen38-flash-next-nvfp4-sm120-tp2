@@ -1,0 +1,36 @@
+model:
+  target_model_path: /home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp
+  draft_model_config: ./specforge_ext/configs/qwen4-exp-flash-next-mtp.json
+  target_backend: sglang
+  torch_dtype: bfloat16
+  embedding_key: model.language_model.embed_tokens.weight
+  lm_head_key: lm_head.weight
+
+data:
+  hidden_states_path: ./cache/hs
+  chat_template: qwen
+  max_length: 4096
+  cache_dir: ./cache
+
+training:
+  strategy: mtp_hc
+  num_epochs: 3
+  batch_size: 2
+  learning_rate: 6e-4
+  max_grad_norm: 0.5
+  attention_backend: sdpa
+  mtp_objective_chunk_size: 2048
+  optimizer_cpu_offload: false
+  warmup_ratio: 0.04
+  save_interval: 2000
+  dist_timeout: 30
+  seed: 0
+
+run_id: qwen38-flash-next-mtp-hc
+output_dir: ./outputs/qwen38-flash-next-mtp-hc
+
+deployment:
+  mode: local_colocated
+  trainer:
+    nnodes: 1
+    nproc_per_node: 2

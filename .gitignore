@@ -21,3 +21,5 @@ __pycache__/
 .venv-*/
 # страй-выхлоп snapshot.py, запускавшегося из корня; зеркало живёт в docs/server-snapshots/
 /MANIFEST.json
+# vendor-клон upstream specforge (14M со своим .git) — не для нашего индекса
+specforge-ext/.upstream/
