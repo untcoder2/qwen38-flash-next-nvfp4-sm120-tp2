@@ -152,7 +152,7 @@ launch_args=(serve \
   --max-mamba-cache-size 128 --gdn-mtp-cache-mode none \
   --linear-attn-decode-backend flashinfer --linear-attn-prefill-backend flashinfer \
   --mamba-track-interval "$MAMBA_TRACK_INTERVAL" \
-  --enable-hierarchical-cache --hicache-size 4 --hicache-host-memory-mode cache \
+  --enable-hierarchical-cache --hicache-size 10 --hicache-host-memory-mode cache \
   --hicache-write-policy write_through --hicache-io-backend kernel \
   --hicache-mem-layout page_first \
   "${PLE_ARGS[@]}" --trust-remote-code \
