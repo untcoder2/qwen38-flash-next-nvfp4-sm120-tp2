@@ -233,19 +233,23 @@ Kimi Code у друга (`~/.kimi-code/config.toml`, шаблон `wireguard/fri
 `sudo ip link set dev eth0 mtu 1400` — иначе крупное тело запроса гибнет на форварде
 Windows в wg1 (WSL-eth0 MSS 1460 > MTU туннеля 1420).
 
-## Claude Code на этом ПК — CLI и Desktop через нативный /v1/messages (14.10)
+## Claude Code на этом ПК — Desktop через нативный /v1/messages (14.10)
 
 Начиная с Some-Version SGLang эндпоинт Anthropic `POST /v1/messages` зарегистрирован на
 боевом листе автоматически (проверено живым запросом; сервер **не валидирует поле
 `model`** — любой id в запросе, всегда отвечает загруженная модель; `--tool-call-parser`
 в листе уже стоит, tool-вызовы возвращаются блоками `tool_use`). Прокси/LiteLLM не нужны.
 
-**CLI** (`claude`, v2.1.296, npm-глобально): конфиг `C:\Users\abcd\.claude\settings.json`,
-env-блок: `ANTHROPIC_BASE_URL=http://192.168.2.127:1234`, `ANTHROPIC_AUTH_TOKEN` любой
-непустой, `ANTHROPIC_{MODEL,DEFAULT_SONNET/OPUS/HAIKU_MODEL}=qwen3.8-flash-next`,
+**CLI** (`@anthropic-ai/claude-code` v2.1.296) ставился 14.10 для теста и по решению
+владельца **удалён в тот же день** (пакет, `~/.claude/`, `~/.claude.json`). Рецепт на
+возврат, если понадобится: env-блок user-settings — `ANTHROPIC_BASE_URL=
+https://192.168.2.127:1234`, `ANTHROPIC_AUTH_TOKEN` непустой, `NODE_EXTRA_CA_CERTS=
+D:\llm\certs\qwen-home-ca.pem`, `ANTHROPIC_MODEL=claude-sonnet-5`,
 `CLAUDE_CODE_ATTRIBUTION_HEADER=0` (иначе per-request hash в system-промпте ломает
 radix-кэш — полный ре-префилл истории каждый ход; официально рекомендовано доками SGLang),
-`CLAUDE_CODE_AUTO_COMPACT_WINDOW=700000` (модель 786k, суффикс `[1m]` НЕ использовать).
+`CLAUDE_CODE_AUTO_COMPACT_WINDOW=700000` (модель 786k, суффикс `[1m]` НЕ использовать);
+первый запуск — интерактивно (wizard), на девственном профиле 2.1.296 креды из env-блока
+до него не читаются (проверено).
 
 **Desktop (GUI, аналог Kimi Code Desktop)** — не читает ни env, ни settings.json; только
 Developer → Configure Third-Party Inference (после Help → Troubleshooting → Enable
@@ -271,7 +275,26 @@ Developer Mode). Подключено на этом ПК 14.10, работает
    `CRYPT_E_NO_REVOCATION_CHECK` — у CA нет CRL, это норма, нужны `--ssl-no-revoke`
    (браузеры/Electron не душатся); (в) server cert до ~янв 2029 — перевыпуск:
    `ops/tls/gen-certs.sh` без `--force` пересоберёт только server-пару, CA и доверие
-   клиентов не меняются; с `--force` — новый CA, тогда переустановка CA всем клиентам.
+   клиентов не меняются; с `--force` — новый CA, тогда переустановка CA всем клиентам;
+   (г) HEALTHCHECK образа v3.0.1 лупит http по :8001 и под TLS вечно показывает
+   unhealthy — leaf теперь стартует с `--no-healthcheck`, здоровье меряет вотчдог;
+   (д) sha256-пин `adaptive-next.json` в tp2 satisfies файл ВНУТРИ образа
+   (/opt/pennyroyal/configs/pennyroyal/, не ~/penny — 14.10 клауд-агент дал фейк-алапт
+   «следующий рестарт упадёт», проверено: sha в контейнере = пину). Правило: при СМЕНЕ
+   ОБРАЗА pennyroyal сверять sha256sum этого файла с пином, не совпадёт — обновить пин
+   осознанно (это и есть назначение пина — drift политики ловить до старта).
+   Имена маршрутов (model id в клиентском профиле) промерены 14.10 CLI + Desktop на бою:
+   серверу поле model безразлично, но по имени клиент выбирает профиль запросов.
+   КАНОН для десктопа: `claude-opus-5-5` + effort любой (после алиас-патча и Max
+   безопасен — гасится в xhigh); каталог v2225 знает это имя, effort-контрол есть. ВНИМАНИЕ про xhigh: Anthropic-слой sglang (serving.py:623-634)
+   штатно роняет output_config.effort xhigh→max ("OpenAI Literal без xhigh"), а родной
+   шаблон Qwen знал только xhigh/medium/low ⇒ Extra давал 500, а без effort шёл medium.
+   14.10 накатано: (1) в chat_template.jinja (модельный каталог, бэкап .bak-effort-1410)
+   алиасы max/high→xhigh, minimal→low — Extra теперь настоящий xhigh, любые имена
+   маршрутов безопасны; (2) в leaf -e PENNY_REASONING_EFFORT=xhigh (хелпер tier'ов PR#18
+   есть в 3.0.1) — дефолт effort по всему серверу xhigh вместо medium (шаг из давнего
+   «staged right now» закрыт). SHABLON sha входит в NIXL-идентичность: пространство
+   сменилось, первый прогон холодный. Старые сессии с запомненным «Max» — не реюзать.
 3. **Model discovery показывает только «claude-*»-id** — не-claude модели фильтруются,
    пикер пустеет. Лечится фиксированным Model list (`inferenceModels`): route-id
    `claude-sonnet-4-5` (валидатор формы требует Anthropic-подобное имя; сервер field model

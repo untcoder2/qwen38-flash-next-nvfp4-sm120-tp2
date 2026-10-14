@@ -4,6 +4,8 @@
 # зафиксирован digest'ом в rollback:keep и остаётся в репо образов).
 # Откат: echo serve-penny-253.sh > /home/molochko/vllm/active.cfg && sudo systemctl restart sglang
 # 14.10.2026: + /tls:ro — sglang TLS (--ssl-* в tp2-serve-flash-next.sh), серты ~/penny/tls.
+#              + --no-healthcheck — HEALTHCHECK образа щупает :8001 по http, под TLS вечно
+#                unhealthy; внешний health — watch-vllm.sh (https+--cacert).
 LOCK=/home/molochko/vllm/.launch.lock
 exec 9>"$LOCK" || exit 1
 if ! flock -n 9; then
@@ -30,9 +32,11 @@ exec docker run --rm --name "$NAME" \
   -e SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN=1 \
   -e TARGET_MODEL=/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp \
   -e SGLANG_SM120_ONLINE_MXFP8=true \
+  -e PENNY_REASONING_EFFORT=xhigh \
   -e TRANSFORMERS_VERBOSITY=error \
   -v /home/molochko/vllm-models:/home/molochko/vllm-models:ro \
   -v /home/molochko/penny/tls:/tls:ro \
   -v /home/molochko/penny/cache:/cache -v /home/molochko/penny/nixl:/nixl \
   --ipc=host --ulimit memlock=-1 -p 1234:8001 \
+  --no-healthcheck \
   ghcr.io/jpezzulli/sglang-rtxpro6000:v3.0.1 next-plain
