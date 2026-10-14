@@ -28,6 +28,16 @@ if [[ -f "$SCRIPT_DIR/reasoning-effort.sh" ]]; then
 else
   DEFAULT_CHAT_TEMPLATE_KWARGS='{"enable_thinking":true,"preserve_thinking":true,"reasoning_effort":"medium"}'
 fi
+# Pennyroyal v3.0: квалифицированный дефолт FP16-accumulate MMA для SM12x
+# delta-rule prefill; значение входит в идентичность NIXL-кэша.
+export FLASHINFER_GDN_FP16_ACCUM_MMA="${FLASHINFER_GDN_FP16_ACCUM_MMA:-1}"
+GDN_FP16_ACCUM_MMA=off
+if [[ "$FLASHINFER_GDN_FP16_ACCUM_MMA" == 1 ]]; then GDN_FP16_ACCUM_MMA=on; fi
+# Политика адаптивной ширины MTP (C1 чередует W4/W8 = steps 3/7, C2+ жёстко W4).
+ADAPTIVE_CONFIG="$SCRIPT_DIR/adaptive-next.json"
+read -r ADAPTIVE_SHA _ < <(sha256sum "$ADAPTIVE_CONFIG")
+[[ "$ADAPTIVE_SHA" == 64070286310a0d3eeeb3ff3ae074d1ca0fed2937d2274a0adfcb8ace84bc01ee ]] || {
+  echo "adaptive-next.json sha256 drift: $ADAPTIVE_SHA" >&2; exit 1; }
 CONTEXT_LENGTH=786432
 PAGE_SIZE=64
 TP_SIZE=2
@@ -98,10 +108,13 @@ NIXL_STORAGE="$("$NAMESPACE_HELPER" \
   --field "compute_dtype=$COMPUTE_DTYPE" \
   --field "target_kv_dtype=$KV_DTYPE" \
   --field "speculative_algorithm=NEXTN" \
-  --field "speculative_num_steps=3" \
+  --field "speculative_num_steps=7" \
   --field "speculative_eagle_topk=1" \
-  --field "speculative_num_draft_tokens=4" \
+  --field "speculative_num_draft_tokens=8" \
+  --field "speculative_adaptive=true" \
+  --field "speculative_adaptive_policy_sha256=$ADAPTIVE_SHA" \
   --field "speculative_draft_quantization=unquant" \
+  --field "gdn_fp16_accum_mma=$GDN_FP16_ACCUM_MMA" \
   --field "gdn_mtp_cache_mode=none" \
   --field "hicache_io_backend=kernel" \
   --field "hicache_mem_layout=page_first" \
@@ -147,8 +160,10 @@ launch_args=(serve \
   --reasoning-parser qwen3 --tool-call-parser qwen3_coder \
   --enable-request-time-stats-logging --enable-metrics \
   --default-chat-template-kwargs "$DEFAULT_CHAT_TEMPLATE_KWARGS" \
-  --speculative-algorithm NEXTN --speculative-num-steps 3 \
-  --speculative-eagle-topk 1 --speculative-num-draft-tokens 4 \
+  --speculative-algorithm NEXTN --speculative-num-steps 7 \
+  --speculative-eagle-topk 1 --speculative-num-draft-tokens 8 \
+  --speculative-adaptive --speculative-adaptive-config "$ADAPTIVE_CONFIG" \
+  --speculative-draft-model-quantization unquant \
   --watchdog-timeout 1800)
 source "$SCRIPT_DIR/startup-summary.sh"
 pennyroyal_startup_summary "${launch_args[@]}"
