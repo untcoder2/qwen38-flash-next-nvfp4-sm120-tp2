@@ -11,5 +11,13 @@ wireguard/
 
 # sudo пароль GPU-хоста — только локально, в git никогда
 tmp/.sp
+# весь scratch-каталог: дампы, exporters, временные zip (14.10 разгреба)
+tmp/
 # датасеты: не в git, и grep по ним не ходит (ripgrep уважает gitignore)
 corpus/
+# питоновские артефакты — в индекс не попадают уже никогда
+__pycache__/
+*.pyc
+.venv-*/
+# страй-выхлоп snapshot.py, запускавшегося из корня; зеркало живёт в docs/server-snapshots/
+/MANIFEST.json
