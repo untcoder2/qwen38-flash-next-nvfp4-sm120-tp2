@@ -11,3 +11,5 @@ wireguard/
 
 # sudo пароль GPU-хоста — только локально, в git никогда
 tmp/.sp
+# датасеты: не в git, и grep по ним не ходит (ripgrep уважает gitignore)
+corpus/
