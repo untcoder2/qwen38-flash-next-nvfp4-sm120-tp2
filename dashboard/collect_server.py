@@ -28,7 +28,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-BASE = os.environ.get("DASH_SERVER_BASE", "http://192.168.2.127:1234")
+BASE = os.environ.get("DASH_SERVER_BASE", "https://192.168.2.127:1234")
 TIMEOUT_S = 8.0
 HERE = Path(__file__).resolve().parent
 

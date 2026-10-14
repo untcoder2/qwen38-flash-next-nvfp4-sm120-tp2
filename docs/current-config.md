@@ -68,6 +68,12 @@ systemd sglang.service
 
 ## Боевая команда (как разрешилась)
 
+> **Сверено живьём 10.10.2026** (`/proc/<pid>/cmdline` контейнера `penny`): образ
+> `v2.5.3`, `--mem-fraction-static 0.95`, `--context-length 786432`,
+> `--max-running-requests 16`, `--max-mamba-cache-size 128` — ниже исторический
+> блок эпохи v2.5.1, кто и когда поднимал mrr/mf и возвращал контекст с 1M —
+> в notes не записано.
+
 ```
 --tp 2 --disable-custom-all-reduce --dtype bfloat16 --quantization modelopt_fp4
 --kv-cache-dtype fp8_e4m3 --mem-fraction-static 0.88 --context-length 1048576
@@ -181,3 +187,102 @@ echo serve-fn-bf16mtp.sh > /home/molochko/vllm/active.cfg && sudo systemctl rest
 ```
 
 Старый leaf, дерево движка `sglang-qwen4` и все бэкапы на месте, ничего не удалено.
+
+## Доступ друга по WireGuard (с 10.10.2026; работает с 13.10)
+
+Отдельный интерфейс `wg1` (сервер: `10.9.0.1/24`, `ListenPort 443/UDP` — порт выбран
+«под HTTPS/QUIC» против шейперов; старый `wg0` от 26.09 снесён 10.10, архив
+`/etc/wireguard/disabled-20261010-224731`). Онбординг друга — скриптом (идём через
+sudoers-пин `wg-manage.sh`, идемпотентно, следующим друзьям — следующие /32):
+
+```bash
+sudo /usr/bin/bash /home/molochko/agent-tools/wg-manage.sh add <имя> [пубключ]
+# зеркала: ops/wg-manage.sh, ops/wg1-add-friend.sh (дефолты зеркала подровнены
+# 13.10 под бой: ENDPOINT=94.102.125.42, PORT=443, как в /etc/wireguard/wg1.conf)
+```
+
+Клиентский конфиг: `AllowedIPs = 192.168.2.127/32` — только инфер-хост, LAN не светится.
+Endpoint `94.102.125.42:443` (белый IP Искрателекома, выдан 12.10; прежний
+`81.200.10.220` был общим NAT-шлюзом LSN — входящие не доходили). На роутере — проброс
+UDP 443 → 192.168.2.127.
+
+Три неочевидных условия, без которых wg1 «не работает» (все проверены кровью 12–13.10):
+1. **ufw хоста активен, INPUT DROP** — нужно `sudo ufw allow 443/udp`, иначе пакеты
+   доходят до интерфейса и молча дrops'ятся (tcpdump видит вход, ответа нет);
+2. **AppArmor профиль `wg-quick`** блокирует бинд привилегированного порта дочерним `ip`
+   (`net_bind_service` EPERM) — лечится `apparmor_parser -C -r /etc/apparmor.d/wg-quick`
+   (complain); на непривилегированных портах (51820/8443) проблемы нет;
+3. в конфиге стоит `Table = off` и `/etc/NetworkManager/conf.d/99-unmanaged-wg1.conf` —
+   чтобы systemd/NM не устраивали гонку за интерфейс при рестартах.
+
+Удалить друга: убрать его `[Peer]`-блок из `/etc/wireguard/wg1.conf` и
+`sudo systemctl restart wg-quick@wg1`. Проверка живости: `sudo wg show wg1 latest-handshakes`.
+Хендшейк подтверждён 13.10 01:00 (peer `friend`, источник 178.71.4.111).
+
+Kimi Code у друга (`~/.kimi-code/config.toml`, шаблон `wireguard/friend-kimi-config.toml`):
+провайдер `type = "openai"`, `base_url = https://192.168.2.127:1234/v1` (с 14.10 — TLS,
+нужен CA `certs/qwen-home-ca.pem` в доверенных корневых на его машине),
+модель `qwen3.8-flash-next`, `max_context_size = 786432`, `adaptive_thinking = true`,
+`support_efforts = [low, medium, xhigh]`, `default_effort = xhigh`.
+
+ВАЖНО про рабочее окружение (проверено на друге 13.10): если GUI на Windows открывает
+папку в WSL (`\\wsl.localhost\...`) — индексация проекта по 9P не влезает в
+30-секундный лимит отправки промпта, GUI показывает «server response timed out»,
+сеть при этом исправна. Правила: GUI на Windows → проект на Windows FS; проект в WSL
+→ Kimi CLI внутри WSL (конфиг `/home/<user>/.kimi-code/config.toml`) и в WSL
+`sudo ip link set dev eth0 mtu 1400` — иначе крупное тело запроса гибнет на форварде
+Windows в wg1 (WSL-eth0 MSS 1460 > MTU туннеля 1420).
+
+## Claude Code на этом ПК — CLI и Desktop через нативный /v1/messages (14.10)
+
+Начиная с Some-Version SGLang эндпоинт Anthropic `POST /v1/messages` зарегистрирован на
+боевом листе автоматически (проверено живым запросом; сервер **не валидирует поле
+`model`** — любой id в запросе, всегда отвечает загруженная модель; `--tool-call-parser`
+в листе уже стоит, tool-вызовы возвращаются блоками `tool_use`). Прокси/LiteLLM не нужны.
+
+**CLI** (`claude`, v2.1.296, npm-глобально): конфиг `C:\Users\abcd\.claude\settings.json`,
+env-блок: `ANTHROPIC_BASE_URL=http://192.168.2.127:1234`, `ANTHROPIC_AUTH_TOKEN` любой
+непустой, `ANTHROPIC_{MODEL,DEFAULT_SONNET/OPUS/HAIKU_MODEL}=qwen3.8-flash-next`,
+`CLAUDE_CODE_ATTRIBUTION_HEADER=0` (иначе per-request hash в system-промпте ломает
+radix-кэш — полный ре-префилл истории каждый ход; официально рекомендовано доками SGLang),
+`CLAUDE_CODE_AUTO_COMPACT_WINDOW=700000` (модель 786k, суффикс `[1m]` НЕ использовать).
+
+**Desktop (GUI, аналог Kimi Code Desktop)** — не читает ни env, ни settings.json; только
+Developer → Configure Third-Party Inference (после Help → Troubleshooting → Enable
+Developer Mode). Подключено на этом ПК 14.10, работает. Особенности, все проверены:
+1. **TLS на самом SGLang (с 14.10, v3.0.1-лист)**: `--ssl-keyfile /tls/server.key
+   --ssl-certfile /tls/server.pem` в `tp2-serve-flash-next.sh` (launch_args, после
+   watchdog-timeout), ро-маунт `~/penny/tls → /tls` в leaf `serve-penny-301.sh`.
+   Порт прежний **:1234**, но теперь только https. CA/ключи: `/home/molochko/penny/tls/`
+   (генерация `ops/tls/gen-certs.sh`; server cert 825 дней, SAN IP:192.168.2.127,
+   IP:127.0.0.1, DNS:localhost — ключи не покидают хост). Публичный CA для клиентов:
+   `certs/qwen-home-ca.pem` (этот репо). Раньше был SSH-туннель 127.0.0.1:1234 ради
+   политики Desktop «http только на loopback» — **снят 14.10**, не нужен с серверным TLS.
+2. **Watchdog** (`watch-vllm.sh`): `h()` переведён на https + `--cacert ~/penny/tls/ca.pem`;
+   бэкап `watch-vllm.sh.bak-tls-1410`. Скрипты на хосте, дёргающие инфер через urllib,
+   требуют `SSL_CERT_FILE=/home/molochko/penny/tls/ca.pem` в окружении; хостовые
+   curl-провы — `--cacert`. Хозяин-ПК (Windows): CA в пользовательском Root-хранилище
+   (`certutil -addstore -user Root`), Node-клиенты — `NODE_EXTRA_CA_CERTS`.
+   Друзья по WG: `base_url` → `https://…/v1` + поставить `qwen-home-ca.pem` в доверенные
+   корневые (шаблон `wireguard/friend-kimi-config.toml` обновлён).
+   ПРАВИЛА, обожжённые 14.10: (а) добавили новый корневой CA — ВСЕ Electron/Chromium
+   клиенты перезапустить полностью, на лету корень не подхватывается (на этом встал
+   живущий Kimi Code сразу после переключения); (б) Windows curl(Schannel) ругается
+   `CRYPT_E_NO_REVOCATION_CHECK` — у CA нет CRL, это норма, нужны `--ssl-no-revoke`
+   (браузеры/Electron не душатся); (в) server cert до ~янв 2029 — перевыпуск:
+   `ops/tls/gen-certs.sh` без `--force` пересоберёт только server-пару, CA и доверие
+   клиентов не меняются; с `--force` — новый CA, тогда переустановка CA всем клиентам.
+3. **Model discovery показывает только «claude-*»-id** — не-claude модели фильтруются,
+   пикер пустеет. Лечится фиксированным Model list (`inferenceModels`): route-id
+   `claude-sonnet-4-5` (валидатор формы требует Anthropic-подобное имя; сервер field model
+   игнорит), label `Qwen 3.8 Flash Next (local)`, supports1m=false, tier=opus/sonnet,
+   maxEffort=xhigh, defaultModelEffort=xhigh.
+4. Сохранённый конфиг: `%LOCALAPPDATA%\Claude-3p\configLibrary\*.json` (+ `host-creds-*.json`).
+   Правка на живую приложением переписывается — менять при закрытом приложении, затем рестарт.
+   Состояние видно в `%LOCALAPPDATA%\Claude-3p\logs\main.log`: `ConfigHealth … healthy`,
+   `inference apiHost=http://127.0.0.1:1234`.
+5. ОБОЛОЧКА приложения требует логин claude.ai (на этом ПК: alex Free) — inference при этом
+   весь идёт на гейтвей, подписка на запросы не влияет; Remote Control/voice недоступны
+   в 3P-режиме (это ожидаемо).
+После ребута «Gateway unreachable» = сначала проверить туннель (`curl http://127.0.0.1:1234/v1/models`),
+потом уже приложение. Приложение обновлено автоапдейтером до 2.37337.1 в тот же вечер.
