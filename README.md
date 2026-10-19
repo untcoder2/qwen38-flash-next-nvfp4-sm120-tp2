@@ -6,6 +6,9 @@ anywhere else that we could find:
 1. **The official NVIDIA NVFP4 checkpoint ships an fp8 MTP block that silently
    destroys speculative decoding** — draft acceptance 1.50 instead of ~3.0, costing
    ~40% of decode throughput. Output quality is unaffected; only speed is.
+   *Update 19.10:* NVIDIA's QAD checkpoint (`FP4-Local`) now ships a trained NVFP4
+   draft head; BF16-materialized into the tree it takes acceptance to **4.51** —
+   see [MTP.md](docs/MTP.md).
 2. **The single-GPU-targeted SM120 runtimes do run at TP=2**, despite being
    documented as TP=1 only. One flag and two removals are all it takes.
 3. **You can pass GPUs into Docker without `nvidia-container-toolkit` and without
@@ -31,6 +34,7 @@ All configurations scored **20/20 on quality**. Differences are speed only.
 | **+ Pennyroyal v2.5.3 @ context 1,048,576 (YaRN×4), mf 0.92** | 2 | 326–332 (greedy) | — | 2.46–2.63; retract 0 |
 | same engine @ 786,432 (YaRN×3), mf 0.95, 16 running reqs | 2 | 264 (greedy, **under 5–7 agent load**) | — | 2.25–2.6; retract 0 |
 | **+ PLE to host-pinned RAM, v3.0.1, hicache 10 (KV ×2.6)** | 2 | **405.6** (greedy, n=5, quiet) | — | retract 0 |
+| **+ NVIDIA QAD MTP head (FP4-Local dequant to BF16), v3.0.1** | 2 | **412.5** | — (n=5: 406.5–470.9) | **4.51** (greedy window, n=21) |
 
 Context history matters when comparing: the early rows ran 786,432 (YaRN factor 3.0),
 we stretched to 1,048,576 (YaRN×4) with v2.5.3, and moved back to 786,432/×3 — the extra
@@ -55,8 +59,9 @@ torch 2.13.0+cu130, FlashInfer 0.6.17, Python 3.12.13, 90 GB host RAM.
 ## Findings
 
 - **[The fp8 MTP defect](docs/MTP.md)** — what is wrong with the official
-  checkpoint's draft head, how to confirm it in one command, and the transplant
-  that fixes it. Reproduced independently in two different runtimes.
+  checkpoint's draft head, how to confirm it in one command, the transplant
+  that fixed it, and the 19.10 update: NVIDIA's QAD head supersedes the
+  transplant (accept 4.51). Reproduced independently in two different runtimes.
 - **[Running TP=2 on single-GPU builds](docs/TP2.md)** — the exact changes, with
   the errors you hit if you skip them.
 - **[GPUs in Docker without nvidia-container-toolkit](docs/GPU-IN-DOCKER.md)** —
@@ -102,7 +107,10 @@ Stated plainly so nobody builds on sand:
   The 64-interval decay claim remains untested on our path.
 - **Degeneration in long reasoning.** There is a credible report of unrecoverable
   repetition loops tied to the draft-verify path under heavy tool use and long
-  reasoning. We have a probe but no verdict yet.
+  reasoning. First verdict (19.10, QAD head, adversarial probe temp 1.0): 1
+  repetition burst in 8 at both 8K and 32K budgets, 6/8 ended with a natural
+  stop, zero empty completions. No baseline exists for the older community head —
+  the probe was never run before the swap.
 - **HiCache persistence across restart** is disabled here (NIXL backend would not
   initialize). v2.5.1's host-cache fixes check out indirectly — a warm 169,608-token
   re-prefill dropped from 13.0 s to 0.42 s (100.0% radix hits) — but
