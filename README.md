@@ -35,6 +35,7 @@ All configurations scored **20/20 on quality**. Differences are speed only.
 | same engine @ 786,432 (YaRN×3), mf 0.95, 16 running reqs | 2 | 264 (greedy, **under 5–7 agent load**) | — | 2.25–2.6; retract 0 |
 | **+ PLE to host-pinned RAM, v3.0.1, hicache 10 (KV ×2.6)** | 2 | **405.6** (greedy, n=5, quiet) | — | retract 0 |
 | **+ NVIDIA QAD MTP head (FP4-Local dequant to BF16), v3.0.1** | 2 | **412.5** | — (n=5: 406.5–470.9) | **4.51** (greedy window, n=21) |
+| **+ same head on Pennyroyal v3.0.2** (adaptive width-hold) | 2 | 388.9 (under live-session load; quiet rerun pending) | — (n=5: 349.9–427.5) | 2.00 in adversarial window; degeneration probe improved to 0/8 |
 
 Context history matters when comparing: the early rows ran 786,432 (YaRN factor 3.0),
 we stretched to 1,048,576 (YaRN×4) with v2.5.3, and moved back to 786,432/×3 — the extra
