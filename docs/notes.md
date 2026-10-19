@@ -1420,3 +1420,6 @@ URL возвращён владельцем на :1234; `kill` по pid-файл
   written fresh `ops/_quality_tls.py`.
 - Ревью-цикл по правилу 18.10: security 2 раунда (FIX-FIRST → PASS), code 2 раунда
   (FIX-NEEDED M1–M4 → PASS). Откат любой минуты: 301-лист + `-bf16mtp` (не удалены).
+- Наружу: pubclone `4891dea` (MTP.md — UPDATE с формулой, MEASUREMENTS QA1 412.5/4.51);
+  апстрим-рекст Pennyroyal — jpezzulli/sglang-rtxpro6000#80 (нативная загрузка
+  сериализованного NVFP4 MTP-draft; согласны тестировать ветку).
