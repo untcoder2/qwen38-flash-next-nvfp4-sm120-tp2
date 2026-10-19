@@ -100,10 +100,22 @@ systemd sglang.service
 > `tp2-serve-flash-next.sh` перепинен на sha256 adaptive-next 658158c2…, бэкап
 > `.bak-301sha-20261019-0342`; ple-backend/chat-template апстрим не менял).
 > Регресс: load 141.9 c, батарея 20/20, `_degen` 0/8 (было 1/8), accept в
-> adversarial-окне 2.00 (было 1.93), short_bench 388.9 ПОД ЖИВОЙ НАГРУЗКОЙ —
-> тихий повтор обязателен перед сменой базы. Откат = вернуть профиль-бэкап +
-> 301-лист. PR jpezzulli#79 (QSA HiCache fence, qwen3_coder combinators,
-> API-hardening) — при склейке апгрейдиться сразу.
+> adversarial-окне 2.00 (было 1.93), short_bench 388.9 ПОД ЖИВОЙ НАГРУЗКОЙ.
+>
+> **19.10 ночь: v3.0.2 ОТКАЧЕН.** Тихие домеры (25 greedy-прогонов, сервер idle,
+> queue 0): медиана **~380.8** против базы **412.5**, разброс дву modalный
+> 319–447. Корень — **adaptive-треш на BS1**: контроллер переключает steps 7↔3
+> каждые 1–3 с (322 события за 25 мин), реверсы в пределах секунды — заявленный
+> в `adaptive-next.json` холд 40/80 батчей рантаймом не соблюдается. Низкий
+> кластер = прогоны, пойманные в раскачке. Заведена апстрим-ишью
+> **jpezzulli/sglang-rtxpro6000#81** (лог-доказательства, минимальный репро,
+> таблица 3.0.1 vs 3.0.2). Качествовые улучшения 3.0.2 (degen 0/8, accept 2.00)
+> реальны — на фикс-релизе апгрейдиться повторно.
+> Откат: лист **`serve-penny-qadmtp301.sh`** (копия qadmtp-листа, образ :v3.0.1;
+> `serve-penny-301.sh` — это RadixArk/-bf16mtp, не трогать), профиль возвращён с
+> `.bak-301sha-20261019-0342` (sha 64070286…), `active.cfg=serve-penny-qadmtp301.sh`.
+> 3.0.2-лист `serve-penny-qadmtp.sh` цел. PR jpezzulli#79 (QSA HiCache fence,
+> qwen3_coder combinators, API-hardening) — при склейке апгрейдиться сразу.
 
 ```
 --tp 2 --disable-custom-all-reduce --dtype bfloat16 --quantization modelopt_fp4
