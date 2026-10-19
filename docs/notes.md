@@ -1380,3 +1380,43 @@ URL возвращён владельцем на :1234; `kill` по pid-файл
   tmp/try_hc6.sh / rollback_hc4.sh). Если тему поднимать снова — сначала освободить
   RAM (page cache ~20G, root) или менять расклад PLE/пулов целиком, а не крутить
   только hicache-size.
+
+## 15.10 — Claude Desktop снесён с этого ПК
+- Владелец удалил Claude Desktop полностью (CLI был удалён ещё 14.10). Больше про
+  него не пишем; раздел «Claude Code на этом ПК» в current-config.md — архив/рецепт.
+- Заодно проверено живым A/B (ops/_probe_effort2.py, 3 повтора): effort из GUI
+  перебивает серверный `PENNY_REASONING_EFFORT=xhigh` — с `reasoning_effort: medium`
+  thinking ~2.5× короче, чем без поля (3.4K против 8.6K символов рассуждения).
+  Env-дефолт срабатывает только на запросах без effort.
+
+## 19.10: QAD-MTP голова NVIDIA вместо RadixArk; база 412.5, accept 4.51
+
+- Заменена MTP-головка: `nvidia/Qwen3.8-Flash-Next-FP4-Local@b9ce18a6` (QAD-distilled),
+  NVFP4→BF16 деquant в 31-тензорный шард боевой схемы, движок не тронут (`unquant`
+  путь Pennyroyal — сериализованный FP4-draft он отвергает на любом фланге, проверено
+  по коду `_mtp_quant_config`). Дерево `Qwen3.8-Flash-Next-NVFP4-qadmtp`, лист
+  `serve-penny-qadmtp.sh` (дельта=TARGET_MODEL). Пайплайн: `ops/_dl_mtp_ranges.sh`
+  (byte-ranges 1.6 GiB, pinned REV, sha256-гейт) → `ops/_qad_mtp_bf16.py` (отчёт ok:true:
+  nan 0, amax 6.14M блоков сходится, corr с RadixArk 0.9955 / с офиц. FP8 0.9952) →
+  `ops/_build_qadmtp_tree.sh` → TLS-раннер батареи `ops/_quality_tls.py`.
+- Метрики: load 141 c, short_bench **412.5** (база 405.6), accept greedy-окна **4.51**
+  (база 3.01; под temp-1.0 adversarial — 1.93, режим не сравнивается), `_degen` **1/8**
+  (первый прогон → это базлайн), батарея `_tasks.json` **20/20** temp0/thinking-off.
+- Разведка роем (6 агентов): 4608 per-expert NVFP4 + 29 BF16; **скейлы MTP не в CSF**
+  (main-model — в CSF, PR vLLM #60646 открыт); layout ЛИНЕЙНЫЙ [N,K/16] без свиззла
+  (доказано кодом ModelOpt save + невалидными для свиззла формами); weight_scale_2 —
+  ДЕКОД-мультипликатор (не инвертировать); low-nibble первый. Всё учтено в скрипте,
+  самопроверки встроены.
+- Уроки: (1) safetensors `data_offsets` ОТНОСИТЕЛЬНЫЕ конца заголовка — первый заход
+  качал на ~1 МБ мимо; (2) Reader угадывал blob по числовому пересечению диапазонов —
+  rel-оффсеты shard-15 легли ВНУТРЬ shard-1 scales-спана, на выходе 1e38 вместо весов:
+  межфайловые оффсеты нельзя разрешать по значению, только явным указанием файла;
+  (3) `cp -as` + `open('w')` = запись ПО СИМЛИНКУ в оригинал — на минуту был испорчен
+  индекс откатного `-bf16mtp` (прод не пострадал — был в памяти; восстановлено;
+  в скриптах unlink-before-write + `assert len(diff)==31` против vacuous self-check,
+  тот же баг нашёл security-review — ревью-гейт оправдал себя); (4) `runsh.sh` гоняет
+  файл через `bash -s` — python-скрипты только `rput` + `python3` на хосте;
+  (5) `_quality.py` — форк-era пережиток (http + правка мёртвого листа), для penny/TLS
+  written fresh `ops/_quality_tls.py`.
+- Ревью-цикл по правилу 18.10: security 2 раунда (FIX-FIRST → PASS), code 2 раунда
+  (FIX-NEEDED M1–M4 → PASS). Откат любой минуты: 301-лист + `-bf16mtp` (не удалены).

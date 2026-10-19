@@ -24,13 +24,17 @@
 
 ## Модель
 
-Чекпоинт не менялся: `/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-bf16mtp` —
-официальные веса NVIDIA (296 444 тензора, не тронуты) плюс **пересаженная
-MTP-голова от RadixArk**, 31 тензор BF16.
-
-Отказаться от головы RadixArk **нельзя**, проверено трижды: родная fp8-голова NVIDIA
-даёт accept 1.50 и на нашем движке, и на Pennyroyal, и не чинится патчем 0010
-(он падает с `Triton illegal memory access`). Подробности — в notes за 16.09.
+Чекпоинт: `/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-qadmtp` (лист
+`serve-penny-qadmtp.sh`, с 19.10.2026) — официальные веса NVIDIA (296 444 тензора,
+symlinks, не тронуты) плюс **родная QAD-MTP-головка NVIDIA**: 31 BF16-тензор,
+деquant из `nvidia/Qwen3.8-Flash-Next-FP4-Local@b9ce18a6` (NVFP4-эксперты,
+пер-16 E4M3-скейлы без свиззла + F32 weight_scale_2; скрипт `ops/_qad_mtp_bf16.py`,
+отчёт `~/vllm-models/_fp4local_dl/qad_mtp_report.json`, ok:true).
+RadixArk-голова снята: её raison d'être (accept 1.50 у родной FP8-головы) здесь
+не воспроизводится — QAD-головка на том же `unquant`-пути даёт accept 4.51 в
+greedy-окне (база RadixArk 3.01). Природа 1.50 (формат block-FP8 vs качество
+веса) так и не разведена — неактуально, тот путь больше не боевой. Старое дерево `-bf16mtp` цело —
+это ОТКАТ: `echo serve-penny-301.sh > active.cfg && sudo systemctl restart sglang`.
 
 ## Как запущено
 
@@ -81,6 +85,16 @@ systemd sglang.service
 > (`--ple-offload-embedding`),
 > KV-пул **6 425 920** токенов, VRAM 93.7/97.9 GiB на карту, short_bench медиана
 > **405.6** — новая база. Подробности и откат: notes 14.10.
+
+> **Сверено живьём 19.10.2026**: тот же v3.0.1/TLS/adaptive, но лист
+> `serve-penny-qadmtp.sh`, голова — **QAD-MTP NVIDIA** вместо RadixArk (см. «Модель»).
+> Старт: load_weight 141 с, HEALTH_OK, ошибок нет. short_bench **412.5** (база 405.6).
+> Accept в greedy-окне медиана **4.51** (n=21; база 3.01) — в temp-1.0 окне под
+> adversarial `_degen` просаживается до 1.93: другой режим, с базой не сравнивать.
+> `_degen`: **1 вырождение из 8** — первый прогон, с 19.10 это базлайн, следить.
+> Батарея `_tasks.json` temp0/thinking-off: **20/20** (`ops/_quality_tls.py`; старый
+> `_quality.py` — форк-era, под TLS/penny нерабочий). Откат: `-bf16mtp` + лист 301 целы.
+> История и lesson'ы: notes 19.10.
 
 ```
 --tp 2 --disable-custom-all-reduce --dtype bfloat16 --quantization modelopt_fp4
@@ -242,6 +256,11 @@ Kimi Code у друга (`~/.kimi-code/config.toml`, шаблон `wireguard/fri
 Windows в wg1 (WSL-eth0 MSS 1460 > MTU туннеля 1420).
 
 ## Claude Code на этом ПК — Desktop через нативный /v1/messages (14.10)
+
+> **СТАТУС 15.10: УДАЛЕНО.** Владелец снёс Claude Desktop с этого ПК полностью;
+> CLI уже был удалён 14.10. Раздел ниже — историческая запись и рецепт возврата,
+> новых заметок про Claude не пишем. Серверное от этого не зависит: эндпоинт
+> `/v1/messages` в листе SGLang остался, TLS на :1234 нужен и друзьям по WG.
 
 Начиная с Some-Version SGLang эндпоинт Anthropic `POST /v1/messages` зарегистрирован на
 боевом листе автоматически (проверено живым запросом; сервер **не валидирует поле
