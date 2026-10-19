@@ -81,6 +81,10 @@ post-boot (no drift window); retract counted from journal since the restart: 0.
 | id | config | median | min | max | prefill cold / warm |
 |---|---|---|---|---|---|
 | PL1 | v3.0.1, PLE host-pinned, hicache 4 | **405.6** | 336.5 | 466.7 | 12.55 s / 0.34 s |
+| QA1 | PL1 + NVIDIA QAD MTP head (see MTP.md update) | **412.5** | 406.5 | 470.9 | — |
+
+QA1 also moved acceptance: greedy-window median **4.51** (n=21) vs 3.01 with the
+community BF16 head, same draft budget. Temperature note below applies unchanged.
 
 The first run (336.5) is post-warmup straggler; the four after it sit 403–467.
 Reference rows for the same box with PLE in VRAM remain v2.5-era (332.2) — see

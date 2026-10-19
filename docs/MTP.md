@@ -116,9 +116,42 @@ The caveat: that guarantee holds only if the draft-verify implementation is
 correct. There is a credible field report of repetition loops traced to that exact
 path, so treat "lossless" as a property to verify rather than assume.
 
+## UPDATE 2026-10-19: NVIDIA answered with a QAD checkpoint, and the
+## community transplant became unnecessary
+
+NVIDIA shipped [`nvidia/Qwen3.8-Flash-Next-FP4-Local`](https://huggingface.co/nvidia/Qwen3.8-Flash-Next-FP4-Local):
+the same base quantized by quantization-aware distillation, in which the MTP
+block is NVFP4 (`W4A16_NVFP4`, group 16) with **block scales stored directly**
+(no CSF compression — that encoding applies to the main model only). Because
+NVFP4 (E2M1 value x E4M3 per-16 scale) round-trips into BF16 exactly through
+FP32 intermediates, you can materialize the trained head yourself:
+
+- dequantize the 4,608 per-expert tensors (`weight` U8 pairs, low nibble first,
+  sign = bit 3; `weight_scale` F8_E4M3 in **linear** [out, in/16] layout —
+  verified there is no 128x4 swizzle in ModelOpt-serialized checkpoints;
+  `weight_scale_2` F32 is the decode **multiplier**, do not invert);
+- concat gate‖up per expert into `[512, 1280, 2560]`, stack down into
+  `[512, 2560, 640]`, and reuse the 29 raw BF16 tensors verbatim — exactly the
+  31-tensor transplant layout described above;
+- serve with `--speculative-draft-model-quantization unquant` as before.
+
+Measured on the same TP=2 RTX PRO 6000 pair: short_bench median **405.6 →
+412.5**, greedy-window accept **3.01 → 4.51**, quality set still 20/20. EOS
+behaviour is the distillation's stated win: under an adversarial long-reasoning
+probe (8 prompts, temp 1.0) we saw zero empty completions at both 8K and 32K
+token budgets; one repetition burst in eight, ended by a natural stop.
+
+So the general recipe is: any QAD NVFP4 MTP head can be BF16-materialized into
+your checkpoint tree with no engine changes — you no longer need a third-party
+re-release for the head.
+
 ## Ask for NVIDIA
 
-Either ship the MTP block in BF16 as the community re-releases do, or publish a
-working MoE path for `FP8_PB_WO` / `FP8_BLOCK_SCALES` on SM120. As shipped, every
-user who enables NEXTN on this checkpoint silently loses roughly 40% of their
-decode throughput.
+Partially answered on 19.10: `FP4-Local` ships a QAD-trained MTP block (see
+update above) — but the original `nvidia/Qwen3.8-Flash-Next-NVFP4` still ships
+the fp8 `FP8_PB_WO` draft that every SM120 runtime silently loads wrong. Either
+re-ship that checkpoint with a BF16 or QAD-NVFP4 MTP block, or land a working
+MoE runner path for `FP8_BLOCK_SCALES` on SM120. As shipped, every user who
+enables NEXTN on it silently loses roughly half their decode throughput.
+And to draft-quant loaders: accept serialized-NVFP4 MTP natively, this manual
+dequant should not be a user exercise.
