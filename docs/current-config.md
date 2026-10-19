@@ -96,6 +96,15 @@ systemd sglang.service
 > `_quality.py` — форк-era, под TLS/penny нерабочий). Откат: `-bf16mtp` + лист 301 целы.
 > История и lesson'ы: notes 19.10.
 
+> **19.10 вечер: образ v3.0.2** (тот же лист `serve-penny-qadmtp.sh`, профиль
+> `tp2-serve-flash-next.sh` перепинен на sha256 adaptive-next 658158c2…, бэкап
+> `.bak-301sha-20261019-0342`; ple-backend/chat-template апстрим не менял).
+> Регресс: load 141.9 c, батарея 20/20, `_degen` 0/8 (было 1/8), accept в
+> adversarial-окне 2.00 (было 1.93), short_bench 388.9 ПОД ЖИВОЙ НАГРУЗКОЙ —
+> тихий повтор обязателен перед сменой базы. Откат = вернуть профиль-бэкап +
+> 301-лист. PR jpezzulli#79 (QSA HiCache fence, qwen3_coder combinators,
+> API-hardening) — при склейке апгрейдиться сразу.
+
 ```
 --tp 2 --disable-custom-all-reduce --dtype bfloat16 --quantization modelopt_fp4
 --kv-cache-dtype fp8_e4m3 --mem-fraction-static 0.88 --context-length 1048576
