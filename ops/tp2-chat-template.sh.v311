@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Наша замена: родной шаблон чекпоинта вместо Froggeric v22.5.
+# Контрольная сумма считается (она уходит в имя пространства NIXL),
+# но жёсткая сверка с их эталоном снята — шаблон намеренно другой.
+# v3.1.1: путь переставлен на боевое дерево qadmtp (байт-в-байт тот же файл,
+# что и в -bf16mtp: sha256 36450da8f30c…, сверено на хосте 23.10) — лист больше
+# не зависит от откатного дерева.
+CHAT_TEMPLATE="/home/molochko/vllm-models/Qwen3.8-Flash-Next-NVFP4-qadmtp/chat_template.jinja"
+[[ -r "$CHAT_TEMPLATE" ]] || { echo "Шаблон чата не найден: $CHAT_TEMPLATE" >&2; exit 1; }
+read -r CHAT_TEMPLATE_SHA _ < <(sha256sum "$CHAT_TEMPLATE")
