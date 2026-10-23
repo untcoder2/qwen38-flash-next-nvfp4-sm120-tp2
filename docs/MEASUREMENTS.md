@@ -82,6 +82,7 @@ post-boot (no drift window); retract counted from journal since the restart: 0.
 |---|---|---|---|---|---|
 | PL1 | v3.0.1, PLE host-pinned, hicache 4 | **405.6** | 336.5 | 466.7 | 12.55 s / 0.34 s |
 | QA1 | PL1 + NVIDIA QAD MTP head (see MTP.md update) | **412.5** | 406.5 | 470.9 | — |
+| QA2 | QA1 + Pennyroyal v3.1.1 (fixed width C1=W8; see README row + issue #81 close) | **405.4/412.3/391.9** (3 quiet medians, n=15) | 364.7 | 445.0 | accept window 5.59 (n=21) |
 
 QA1 also moved acceptance: greedy-window median **4.51** (n=21) vs 3.01 with the
 community BF16 head, same draft budget. Temperature note below applies unchanged.
