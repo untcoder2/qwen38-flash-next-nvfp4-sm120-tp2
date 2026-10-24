@@ -8,18 +8,18 @@
 
   /* ================= палитра / типографика (владеет ui_charts) ============= */
   var C = {
-    amber:  '#ffb454',
-    cyan:   '#46e0ff',
-    purple: '#b57bff',
-    mint:   '#5ee6a8',
-    rose:   '#ff7a9c',
-    blue:   '#6f8bff',
-    text:   '#c9d5ea',
-    dim:    '#8391ad',
-    bright: '#eaf2ff',
-    faint:  'rgba(140,160,200,0.16)',
-    rest:   '#5b6a86',
-    tooltipBg: 'rgba(9,13,23,0.94)'
+    amber:  '#d97a06',
+    cyan:   '#0e8fb8',
+    purple: '#7a52e0',
+    mint:   '#12a06b',
+    rose:   '#e0537a',
+    blue:   '#4a6cf7',
+    text:   '#1b2434',
+    dim:    '#5b6a85',
+    bright: '#0f1626',
+    faint:  'rgba(27,44,68,0.10)',
+    rest:   '#8593ab',
+    tooltipBg: '#ffffff'
   };
   var DONUT_COLORS = [C.amber, C.cyan, C.purple, C.mint, C.rose, C.blue, C.rest];
   var FONT_MONO = '"JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace';
@@ -164,11 +164,11 @@
     var tip = {
       show: true,
       backgroundColor: C.tooltipBg,
-      borderColor: 'rgba(70,224,255,0.28)',
+      borderColor: 'rgba(27,44,68,0.14)',
       borderWidth: 1,
       padding: [8, 12],
-      textStyle: { color: '#e8f0ff', fontFamily: FONT_SANS, fontSize: 12 },
-      extraCssText: 'border-radius:10px;box-shadow:0 10px 34px rgba(0,0,0,.55);backdrop-filter:blur(6px);'
+      textStyle: { color: '#1b2434', fontFamily: FONT_SANS, fontSize: 12 },
+      extraCssText: 'border-radius:10px;box-shadow:0 10px 34px rgba(27,44,68,0.16);'
     };
     if (tooltipExtra) for (var k in tooltipExtra) tip[k] = tooltipExtra[k];
     return {
@@ -236,7 +236,7 @@
       center: narrow ? ['50%', '42%'] : ['33%', '50%'],
       padAngle: 2,
       minShowLabelAngle: narrow ? 999 : 11,
-      itemStyle: { borderRadius: 6, borderColor: 'rgba(5,7,13,0.9)', borderWidth: 2 },
+      itemStyle: { borderRadius: 6, borderColor: 'rgba(255,255,255,0.95)', borderWidth: 2 },
       color: DONUT_COLORS,
       label: {
         show: !narrow, position: 'outside', alignTo: 'labelLine',
@@ -248,10 +248,10 @@
           d: { color: C.dim, fontSize: 10, fontFamily: FONT_MONO, lineHeight: 13, align: 'center' }
         }
       },
-      labelLine: { length: 10, length2: 12, smooth: true, lineStyle: { color: 'rgba(140,160,200,0.45)' } },
+      labelLine: { length: 10, length2: 12, smooth: true, lineStyle: { color: 'rgba(27,44,68,0.45)' } },
       emphasis: {
         scale: true, scaleSize: 7,
-        itemStyle: { shadowBlur: 26, shadowColor: 'rgba(70,224,255,0.35)' }
+        itemStyle: { shadowBlur: 26, shadowColor: 'rgba(14,143,184,0.35)' }
       },
       data: data.map(function (r) {
         var steps = 0;
@@ -280,7 +280,7 @@
     var inst = mount(el, id);
     var opt = baseOption({
       trigger: 'axis',
-      axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(70,224,255,0.06)' } },
+      axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(14,143,184,0.06)' } },
       formatter: function (params) {
         var sum = 0, html = '<b>' + params[0].axisValue + '</b>';
         params.forEach(function (p) {
@@ -314,18 +314,18 @@
         name: 'prompt', type: 'bar', stack: 'tok', barMaxWidth: 26,
         itemStyle: {
           opacity: 0.85,
-          color: grad(0, 0, 0, 1, [[0, 'rgba(70,224,255,0.28)'], [1, 'rgba(70,224,255,0.85)']])
+          color: grad(0, 0, 0, 1, [[0, 'rgba(14,143,184,0.28)'], [1, 'rgba(14,143,184,0.85)']])
         },
-        emphasis: { focus: 'series', itemStyle: { opacity: 1, shadowBlur: 14, shadowColor: 'rgba(70,224,255,0.4)' } },
+        emphasis: { focus: 'series', itemStyle: { opacity: 1, shadowBlur: 14, shadowColor: 'rgba(14,143,184,0.4)' } },
         data: prompt
       },
       {
         name: 'генерация', type: 'bar', stack: 'tok', barMaxWidth: 26,
         itemStyle: {
           opacity: 0.85, borderRadius: [4, 4, 0, 0],
-          color: grad(0, 0, 0, 1, [[0, 'rgba(255,180,84,0.30)'], [1, 'rgba(255,180,84,0.9)']])
+          color: grad(0, 0, 0, 1, [[0, 'rgba(217,122,6,0.30)'], [1, 'rgba(217,122,6,0.9)']])
         },
-        emphasis: { focus: 'series', itemStyle: { opacity: 1, shadowBlur: 14, shadowColor: 'rgba(255,180,84,0.4)' } },
+        emphasis: { focus: 'series', itemStyle: { opacity: 1, shadowBlur: 14, shadowColor: 'rgba(217,122,6,0.4)' } },
         data: gen
       }
     ];
@@ -364,12 +364,12 @@
         show: true, width: 15, roundCap: true,
         itemStyle: {
           color: grad(0, 0, 1, 0, [[0, C.cyan], [0.55, C.mint], [1, C.amber]]),
-          shadowBlur: 18, shadowColor: 'rgba(70,224,255,0.45)'
+          shadowBlur: 18, shadowColor: 'rgba(14,143,184,0.45)'
         }
       },
-      axisLine: { lineStyle: { width: 15, color: [[1, 'rgba(120,140,180,0.14)']] } },
-      axisTick: { distance: -22, length: 4, lineStyle: { color: 'rgba(140,160,200,0.35)', width: 1 } },
-      splitLine: { distance: -26, length: 9, lineStyle: { color: 'rgba(140,160,200,0.5)', width: 2 } },
+      axisLine: { lineStyle: { width: 15, color: [[1, 'rgba(27,44,68,0.14)']] } },
+      axisTick: { distance: -22, length: 4, lineStyle: { color: 'rgba(27,44,68,0.35)', width: 1 } },
+      splitLine: { distance: -26, length: 9, lineStyle: { color: 'rgba(27,44,68,0.5)', width: 2 } },
       axisLabel: { distance: -12, color: C.dim, fontSize: 9, fontFamily: FONT_MONO, formatter: function (x) { return x === 0 || x === 100 ? String(x) : ''; } },
       pointer: { show: false },
       anchor: { show: false },
@@ -471,9 +471,9 @@
       barMaxWidth: 18,
       itemStyle: {
         borderRadius: [0, 6, 6, 0],
-        color: grad(0, 0, 1, 0, [[0, 'rgba(70,224,255,0.55)'], [0.6, 'rgba(181,123,255,0.75)'], [1, 'rgba(255,180,84,0.95)']])
+        color: grad(0, 0, 1, 0, [[0, 'rgba(14,143,184,0.55)'], [0.6, 'rgba(122,82,224,0.75)'], [1, 'rgba(217,122,6,0.95)']])
       },
-      emphasis: { focus: 'series', itemStyle: { shadowBlur: 16, shadowColor: 'rgba(181,123,255,0.5)' } },
+      emphasis: { focus: 'series', itemStyle: { shadowBlur: 16, shadowColor: 'rgba(122,82,224,0.5)' } },
       label: {
         show: true, position: 'right', distance: 6,
         color: C.bright, fontFamily: FONT_MONO, fontSize: 11,
@@ -483,6 +483,82 @@
     }];
     inst.setOption(opt);
     el.appendChild(plate);
+  }
+
+  /* ================= 4b. chart-speed — реальные tok/s живых сессий ========= */
+  function buildSpeed(el, dash) {
+    var id = 'chart-speed';
+    var sp = ((dash.wire || {}).speed) || {};
+    var days = Array.isArray(sp.days) ? sp.days.filter(function (d) {
+      return d && d.date && d.med_tps;
+    }) : [];
+    if (!days.length) { empty(el, id, 'нет замеров скорости за период'); return; }
+
+    /* серверная медиана gen throughput (движок, без клиента): server.gen_tps_days.p50,
+     * day-join по датам wire.speed.days; нет бакета в день — null (разрыв, не ноль) */
+    var engByDate = {};
+    var srvDays = ((dash.server || {}).gen_tps_days) || [];
+    if (Array.isArray(srvDays)) srvDays.forEach(function (g) {
+      if (!g || !g.date) return;
+      var v = num(g.p50, NaN);
+      if (isFinite(v)) engByDate[g.date] = v;
+    });
+    var engData = days.map(function (d) {
+      var v = engByDate[d.date];
+      return v === undefined ? null : v;
+    });
+    var hasEngine = engData.some(function (v) { return v !== null; });
+
+    var chart = mount(el, id);
+    var opt = baseOption({ trigger: 'axis', axisPointer: { type: 'cross' } });
+    opt.grid = { left: 46, right: 52, top: 38, bottom: 26 };
+    opt.legend = {
+      data: ['токенов/с', 'TTFT, с'].concat(hasEngine ? ['движок, t/s (медиана)'] : []),
+      textStyle: { color: C.dim, fontSize: 10 }, top: 2
+    };
+    opt.xAxis = {
+      type: 'category',
+      data: days.map(function (d) { return d.date.slice(5).replace('-', '.'); }),
+      axisLine: { lineStyle: { color: C.faint } },
+      axisLabel: { color: C.dim, fontSize: 10, fontFamily: FONT_MONO, hideOverlap: true }
+    };
+    opt.yAxis = [
+      { type: 'value', name: 't/s', nameTextStyle: { color: C.dim },
+        axisLabel: { color: C.dim, fontSize: 10, fontFamily: FONT_MONO },
+        splitLine: { lineStyle: { color: C.faint, type: 'dashed' } } },
+      { type: 'value', name: 'TTFT c', position: 'right', splitLine: { show: false },
+        nameTextStyle: { color: C.dim },
+        axisLabel: { color: C.dim, fontSize: 10, fontFamily: FONT_MONO } }
+    ];
+    opt.series = [
+      { name: 'токенов/с', type: 'line', smooth: true, symbol: 'none',
+        data: days.map(function (d) { return d.med_tps; }),
+        lineStyle: { width: 2.5, color: C.cyan },
+        areaStyle: { color: grad(0, 0, 0, 1, [[0, 'rgba(14,143,184,0.22)'], [1, 'rgba(14,143,184,0)']]) } },
+      { name: 'TTFT, с', type: 'line', yAxisIndex: 1, smooth: true, symbol: 'none',
+        data: days.map(function (d) { return d.ttft_med_s; }),
+        lineStyle: { width: 1.5, type: 'dashed', color: C.amber } }
+    ];
+    if (hasEngine) opt.series.push({
+      name: 'движок, t/s (медиана)', type: 'line', yAxisIndex: 0,
+      smooth: true, symbol: 'none', connectNulls: false,
+      data: engData,
+      lineStyle: { width: 2, color: C.mint }
+    });
+    chart.setOption(opt);
+
+    var note = el.parentNode.querySelector('.speed-buckets');
+    if (!note) {
+      note = document.createElement('p');
+      note.className = 'card-sub speed-buckets';
+      el.insertAdjacentElement('afterend', note);
+    }
+    var parts = (sp.buckets || []).filter(function (b) { return b && b.n > 0 && b.med_tps; })
+      .map(function (b) {
+        return b.label + ': ' + int(b.med_tps) + ' t/s · TTFT '
+          + (b.ttft_med_s == null ? '—' : b.ttft_med_s.toFixed(1)) + ' c (' + int(b.n) + ' шагов)';
+      });
+    note.textContent = parts.join(' · ');
   }
 
   /* ================= 5. chart-server — пул-бар счётчиков инфера ============ */
@@ -496,9 +572,9 @@
     var cap = num(info.max_total_num_tokens, NaN);
 
     var cats = [], vals = [], styles = [];
-    if (isFinite(cp)) { cats.push('prompt с запуска'); vals.push(cp); styles.push({ opacity: 0.9, color: grad(0, 0, 1, 0, [[0, 'rgba(70,224,255,0.35)'], [1, 'rgba(70,224,255,0.95)']]) }); }
-    if (isFinite(cg)) { cats.push('генерация с запуска'); vals.push(cg); styles.push({ opacity: 0.9, color: grad(0, 0, 1, 0, [[0, 'rgba(255,180,84,0.35)'], [1, 'rgba(255,180,84,0.95)']]) }); }
-    if (isFinite(cap)) { cats.push('ёмкость контекста'); vals.push(cap); styles.push({ color: 'rgba(181,123,255,0.22)', borderColor: 'rgba(181,123,255,0.6)', borderWidth: 1, borderType: 'dashed' }); }
+    if (isFinite(cp)) { cats.push('prompt с запуска'); vals.push(cp); styles.push({ opacity: 0.9, color: grad(0, 0, 1, 0, [[0, 'rgba(14,143,184,0.35)'], [1, 'rgba(14,143,184,0.95)']]) }); }
+    if (isFinite(cg)) { cats.push('генерация с запуска'); vals.push(cg); styles.push({ opacity: 0.9, color: grad(0, 0, 1, 0, [[0, 'rgba(217,122,6,0.35)'], [1, 'rgba(217,122,6,0.95)']]) }); }
+    if (isFinite(cap)) { cats.push('ёмкость контекста'); vals.push(cap); styles.push({ color: 'rgba(122,82,224,0.22)', borderColor: 'rgba(122,82,224,0.6)', borderWidth: 1, borderType: 'dashed' }); }
 
     if (!cats.length) return empty(el, id, 'сервер ещё не отчитался');
 
@@ -629,14 +705,41 @@
       note: 'оценка по активным дням выбранного периода: ' + active + ' дн × 24 ч'
     });
 
+    /* скорость: окно — фильтрацией дневного ряда; медианы окна — взвешенные
+     * по числу шагов (аппроксимация: медиана медиан, доля шагов учтена) */
+    var sp = wire.speed || {};
+    var spDays = (Array.isArray(sp.days) ? sp.days : []).filter(function (d) {
+      return d && d.date && within(d.date, cutoff);
+    });
+    function wAvg(rows, key) {
+      var sw = 0, sv = 0;
+      rows.forEach(function (r) {
+        var v = num(r[key], NaN);
+        if (isFinite(v)) { sw += num(r.n, 1); sv += v * num(r.n, 1); }
+      });
+      return sw ? Math.round(sv / sw * 10) / 10 : null;
+    }
+    var speedView = Object.assign({}, sp, {
+      days: spDays,
+      med_tps: wAvg(spDays, 'med_tps'),
+      ttft_med_s: wAvg(spDays, 'ttft_med_s'),
+      windowed: days > 0
+    });
+
+    /* серверный ряд движка: то же окно-дата, что у wire.days (cutoff) */
+    var srvGen = (Array.isArray((dash.server || {}).gen_tps_days) ? dash.server.gen_tps_days : [])
+      .filter(function (g) { return g && g.date && within(g.date, cutoff); });
+
     return Object.assign({}, dash, {
       window_days: days > 0 ? days : null,
       window_start: cutoff,
       wire: Object.assign({}, wire, {
         totals: t,
         projects: projects,
-        days: win
+        days: win,
+        speed: speedView
       }),
+      server: Object.assign({}, dash.server, { gen_tps_days: srvGen }),
       costs: Object.assign({}, dash.costs, {
         totals: { prompt: t.prompt, gen: t.gen, cache_read: effCr },
         cloud: cloud,
@@ -659,6 +762,7 @@
       ['chart-days', buildDays],
       ['chart-cache', buildCache],
       ['chart-price', buildPrice],
+      ['chart-speed', buildSpeed],
       ['chart-server', buildServer]
     ];
     todo.forEach(function (pair) {

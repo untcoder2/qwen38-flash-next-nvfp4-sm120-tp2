@@ -126,7 +126,8 @@ def normalize_wire(raw):
             if not isinstance(d, dict):
                 continue
             date = _str(d.get("date"))
-            if len(date) != 10:
+            if (len(date) != 10 or not (date[:4].isdigit() and date[4] == "-"
+                and date[5:7].isdigit() and date[7] == "-" and date[8:10].isdigit())):
                 continue
             pdays.append({
                 "date": date,
@@ -151,7 +152,8 @@ def normalize_wire(raw):
         if not isinstance(d, dict):
             continue
         date = _str(d.get("date"))
-        if len(date) != 10:
+        if (len(date) != 10 or not (date[:4].isdigit() and date[4] == "-"
+                and date[5:7].isdigit() and date[7] == "-" and date[8:10].isdigit())):
             continue
         days.append({
             "date": date,
@@ -178,6 +180,8 @@ def normalize_wire(raw):
             }
             for k, v in models.items() if isinstance(v, dict)
         }
+    if isinstance(sec.get("speed"), dict):
+        out["speed"] = sec["speed"]  # форма проверена в collect_wire
     return out
 
 
@@ -185,6 +189,19 @@ def normalize_server(raw):
     sec = raw if isinstance(raw, dict) else {}
     c = sec.get("counters") if isinstance(sec.get("counters"), dict) else {}
     info = sec.get("info") if isinstance(sec.get("info"), dict) else {}
+    # дневной ряд gen throughput движка (CONTRACT.md): [{date, n, p50, p95}],
+    # полная история по возрастанию дат — период режет фронт
+    gen_days = []
+    for d in (sec.get("gen_tps_days") if isinstance(sec.get("gen_tps_days"), list) else []):
+        if not isinstance(d, dict):
+            continue
+        date = _str(d.get("date"))
+        if (len(date) != 10 or not (date[:4].isdigit() and date[4] == "-"
+                and date[5:7].isdigit() and date[7] == "-" and date[8:10].isdigit())):
+            continue
+        gen_days.append({"date": date, "n": _int(d.get("n")),
+                         "p50": _float(d.get("p50")), "p95": _float(d.get("p95"))})
+    gen_days.sort(key=lambda x: x["date"])
     return {
         "updated_at": _str(sec.get("updated_at")) or now_iso(),
         "online": bool(sec.get("online")),
@@ -193,6 +210,7 @@ def normalize_server(raw):
             "generation_total": _int(c.get("generation_total")),
         },
         "info": info,
+        "gen_tps_days": gen_days,
     }
 
 

@@ -4,7 +4,9 @@
 Контракт: CONTRACT.md п.2 (источник "Сервер инфера"), ключ схемы "server":
     { updated_at: iso, online: bool,
       counters: { prompt_total, generation_total },   # int, сумма ВСЕХ серий
-      info: { max_total_num_tokens, ... } }           # что реально удалось вытянуть
+      info: { max_total_num_tokens, ... },            # что реально удалось вытянуть
+      gen_tps_days: [ {date, n, p50, p95} ] }         # дневной ряд gen throughput
+                                                     # движка (docker logs penny)
 
 Запросы: http://192.168.2.127:1234, timeout 8 c.
 Обрыв сети/таймаут => online:false, пустые counters, исключений наружу не выпускаем.
@@ -26,7 +28,7 @@ import re
 import ssl
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 BASE = os.environ.get("DASH_SERVER_BASE", "https://192.168.2.127:1234")
@@ -235,6 +237,316 @@ def _fold(counters: dict) -> tuple[dict, dict, dict]:
                 pass
 
 
+# --- дневной ряд серверного gen throughput (docker logs penny) ------------------
+# SGLang пишет в stdout контейнера (метки UTC):
+#   [2026-10-24 00:42:44 TP0] Decode batch, #running-req: 1, ... \
+#       gen throughput (token/s): 175.60, #queue-req: 0
+# TP1 дублирует TP0 — берём только TP0. История docker logs теряется при рестарте
+# контейнера, поэтому бакеты персистентны: data/server_gen_buckets.json —
+#   { "YYYY-MM-DD": { "<t/s целое>": count } }        (ключ дня — MSK +03:00 фикс.,
+#                                                      та же дневная ось, что wire.days)
+# data/server_gen_state.json — {backfilled, max_ts_utc, last_run_utc}.
+# Каждый collect(): первый раз — полный backfill логов, дальше — docker logs
+# --since (max_ts − 60 c) c дедупом по ts. Нет docker / ошибка — бакеты не трогаем,
+# ряд из прошлых бакетов (graceful degradation, не падаем).
+
+GEN_BUCKETS_PATH = HERE / "data" / "server_gen_buckets.json"
+GEN_STATE_PATH = HERE / "data" / "server_gen_state.json"
+GEN_LOCK_PATH = HERE / "data" / "server_gen.lock"
+GEN_CONTAINER_RAW = os.environ.get("DASH_GEN_CONTAINER", "penny")
+
+
+def _valid_container(name):
+    """Имя контейнера без риска option-injection: начинается с буквы/цифры,
+    дальше [A-Za-z0-9_.-], <=64. Пустая строка => docker не зовём."""
+    return bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", name or ""))
+
+
+GEN_CONTAINER = GEN_CONTAINER_RAW if _valid_container(GEN_CONTAINER_RAW) else ""
+GEN_LOG_TIMEOUT_S = 30.0        # инкрементальный хвост логов
+GEN_BACKFILL_TIMEOUT_S = 120.0  # первый прогон; НИЖЕ REFRESH_TIMEOUT_S(=180) у сервера,
+                                # чтобы не зациклить повторяющийся backfill
+GEN_BACKFILL_WINDOW_D = 30      # backfill capped: не жрём неограниченный docker logs в RAM
+GEN_WINDOW_CAP_H = 6            # инкремент не растягивается в периоды простоя декода
+GEN_OVERLAP_S = 60              # буфер --since; дубли режутся дедупом по max_ts
+GEN_TPS_MIN, GEN_TPS_MAX = 0.5, 20000.0  # физ. границы: мусор/разрыв формата
+
+_TZ_MSK = timezone(timedelta(hours=3))
+
+_GEN_LINE = re.compile(
+    r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) TP0\]"
+    r".*Decode batch,.*gen throughput \(token/s\): (\d+(?:\.\d+)?)"
+)
+
+
+def parse_gen_line(line: str):
+    """Строка docker logs -> (datetime UTC, tps) | None.
+
+    Только TP0 (TP1 — дубль), только Decode batch, значение из
+    «gen throughput (token/s):». Метка времени в строке — UTC."""
+    m = _GEN_LINE.search(line)
+    if not m:
+        return None
+    try:
+        ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        tps = float(m.group(2))
+    except ValueError:
+        return None
+    if not GEN_TPS_MIN <= tps <= GEN_TPS_MAX:
+        return None
+    return ts, tps
+
+
+def msk_date(ts: datetime) -> str:
+    """UTC-метка -> ключ дня дашборда (MSK, фикс. +03:00 — DST нет)."""
+    return ts.astimezone(_TZ_MSK).strftime("%Y-%m-%d")
+
+
+def merge_log_lines(buckets: dict, text, after_ts: datetime | None = None):
+    """Инкремент строк логов в бакеты in-place -> (добавлено, макс_ts_в_тексте).
+
+    after_ts — дедуп пересечения окна `--since`: строки с ts <= after_ts уже
+    учтены в предыдущих сборах."""
+    added = 0
+    mx = None
+    for line in text.splitlines():
+        if "TP0" not in line or "Decode batch" not in line:
+            continue
+        parsed = parse_gen_line(line)
+        if not parsed:
+            continue
+        ts, tps = parsed
+        if mx is None or ts > mx:
+            mx = ts
+        if after_ts is not None and ts <= after_ts:
+            continue
+        day = buckets.setdefault(msk_date(ts), {})
+        key = str(int(round(tps)))
+        day[key] = day.get(key, 0) + 1
+        added += 1
+    return added, mx
+
+
+def merge_buckets(dst: dict, src: dict) -> None:
+    """Суммирование бакетов src в dst (in-place); мусорные ключи/счётчики пропускаем."""
+    for date, day in (src or {}).items():
+        if not isinstance(day, dict):
+            continue
+        d = dst.setdefault(str(date), {})
+        for b, c in day.items():
+            try:
+                bi, ci = int(float(b)), int(float(c))
+            except (TypeError, ValueError):
+                continue
+            if bi >= 0 and ci > 0:
+                d[str(bi)] = d.get(str(bi), 0) + ci
+
+
+def _value_at_rank(values, counts, rank: int) -> float:
+    cum = 0
+    for v, c in zip(values, counts):
+        if rank < cum + c:
+            return float(v)
+        cum += c
+    return float(values[-1])
+
+
+def percentile_from_buckets(values, counts, q: float):
+    """Квантиль q по сгруппированным значениям (values отсортированы, целые t/s).
+
+    Линейная интерполяция между соседними порядковыми статистиками — при q=0.5
+    совпадает со statistics.median; точность ограничена гранулярностью бакета."""
+    n = sum(counts)
+    if n <= 0:
+        return None
+    t = (n - 1) * q
+    i = int(t)
+    lo = _value_at_rank(values, counts, i)
+    hi = lo if i + 1 > n - 1 else _value_at_rank(values, counts, i + 1)
+    return lo + (hi - lo) * (t - i)
+
+
+def gen_days_from_buckets(buckets: dict) -> list:
+    """[{date, n, p50, p95}] по возрастанию дат; пустые сутки — не строка ряда."""
+    norm = {str(k): v for k, v in (buckets or {}).items()}
+    out = []
+    for date in sorted(norm):
+        day = norm[date]
+        if not isinstance(day, dict):
+            continue
+        agg: dict[int, int] = {}
+        for b, c in day.items():
+            try:
+                bi, ci = int(float(b)), int(float(c))
+            except (TypeError, ValueError):
+                continue
+            if bi >= 0 and ci > 0:
+                agg[bi] = agg.get(bi, 0) + ci
+        n = sum(agg.values())
+        if not n:
+            continue
+        vals = sorted(agg)
+        counts = [agg[v] for v in vals]
+        p50 = percentile_from_buckets(vals, counts, 0.50)
+        p95 = percentile_from_buckets(vals, counts, 0.95)
+        out.append({"date": date, "n": int(n),
+                    "p50": round(p50, 1), "p95": round(p95, 1)})
+    return out
+
+
+def _load_json_dict(path) -> dict:
+    try:
+        with open(path, encoding="utf-8") as f:
+            obj = json.load(f)
+        return obj if isinstance(obj, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _atomic_write_json(path, obj: dict) -> None:
+    import tempfile
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=path.name + ".", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(obj, f, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+class _gen_lock:
+    """Эксклюзив на read-merge-write бакетов: writers минимум два (tick_counter
+    каждые 30 мин + cron refresh 10:00/20:00, шанс совпадения реальный).
+    held=False => вызывающий ОБЯЗАН пропустить тик без записи.
+    Без fcntl (Windows-фронт) — no-op с held=True, там docker всё равно None."""
+    held = True
+
+    def __enter__(self):
+        self.f = None
+        try:
+            import fcntl
+        except ImportError:
+            return self
+        try:
+            GEN_LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+            self.f = open(GEN_LOCK_PATH, "w")
+            fcntl.flock(self.f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            self.held = False  # занято: весь тик пропускается (см. _update_gen_days)
+        return self
+
+    def __exit__(self, *exc):
+        if self.f:
+            try:
+                self.f.close()
+            except OSError:
+                pass
+        return False
+
+
+def _parse_iso_utc(s):
+    """ISO-строка из state -> aware UTC datetime | None (naive считаем UTC)."""
+    if not isinstance(s, str) or not s:
+        return None
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _docker_logs(since_iso, backfill=False):
+    """docker logs penny (опционально --since); None — docker недоступен/ошибка.
+
+    Тот же хелпер-паттерн, что _boot_id: только на хосте, где есть docker;
+    на Windows/без прав возвращаем None молча. Имя контейнера уже провалидировано
+    на уровне модуля (пустое => не зовём)."""
+    if not GEN_CONTAINER:
+        return None
+    try:
+        import shutil
+        import subprocess
+        if shutil.which("docker") is None:
+            return None
+        cmd = ["docker", "logs", GEN_CONTAINER]
+        if since_iso:
+            cmd += ["--since", since_iso]
+        r = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, errors="replace",
+            timeout=GEN_BACKFILL_TIMEOUT_S if backfill else GEN_LOG_TIMEOUT_S)
+        return r.stdout if r.returncode == 0 else None
+        # stderr=STDOUT обязателен: SGLang пишет Decode/Prefill-лог в stderr,
+        # docker logs пропускает его в свой stderr — без слияния ряд был вечно пуст
+        # (capture_output не совмещать с явными stdout/stderr — ValueError)
+    except Exception:
+        return None
+
+
+def _update_gen_days() -> list:
+    """Добавить новые строки логов в персистентные бакеты -> server.gen_tps_days.
+
+    Замечания по краям:
+    - дедуп ts <= after_ts может съесть строку, пришедшую ровно в секунду шва
+      окна (~1 сэмпл/тик, для p50/p95 статистически ничтожно; < давал бы дубли);
+    - crash между записью бакетов и state => at-least-once (дубль ~60 с хвоста),
+      переносимо;
+    - отсутствие файла бакетов при живом state трактуем как «бэкап удалил» —
+      сбрасываем backfilled и перечитываем окно заново."""
+    with _gen_lock() as lk:
+        if not lk.held:  # другой writer внутри критической секции — чистое чтение
+            return gen_days_from_buckets(_load_json_dict(GEN_BUCKETS_PATH))
+        st = _load_json_dict(GEN_STATE_PATH)
+        if st.get("backfilled") and not GEN_BUCKETS_PATH.exists():
+            st = {}  # бакеты потеряны — state без них врать не должен
+        was_backfilled = bool(st.get("backfilled"))
+        buckets = _load_json_dict(GEN_BUCKETS_PATH)
+        now = datetime.now(timezone.utc)
+        max_ts = _parse_iso_utc(st.get("max_ts_utc"))
+        last_run = _parse_iso_utc(st.get("last_run_utc"))
+        floor = now - timedelta(hours=GEN_WINDOW_CAP_H)  # окно не растягается простоем
+        if st.get("backfilled"):
+            cands = [t for t in (max_ts, last_run) if t]
+            anchor = min(cands) if cands else now
+            since_dt = max(anchor - timedelta(seconds=GEN_OVERLAP_S), floor)
+            text = _docker_logs(since_dt.strftime("%Y-%m-%dT%H:%M:%SZ"))
+        else:
+            # первый заход: ограниченный во времени backfill, не весь лог
+            since_dt = now - timedelta(days=GEN_BACKFILL_WINDOW_D)
+            text = _docker_logs(since_dt.strftime("%Y-%m-%dT%H:%M:%SZ"), backfill=True)
+        if text is not None:
+            added, mx = merge_log_lines(buckets, text, after_ts=max_ts)
+            if mx is not None and (max_ts is None or mx > max_ts):
+                max_ts = mx
+            buckets_ok = True
+            if added or not was_backfilled:
+                # первый успешный заход пишем всегда, даже пустым: иначе свежий
+                # контейнер без Decode-строк звал бы 120-с backfill каждый тик
+                try:
+                    _atomic_write_json(GEN_BUCKETS_PATH, buckets)
+                except OSError:
+                    buckets_ok = False
+            if buckets_ok:  # state вперёд не убежит, если бакеты не дописались
+                st = dict(st)
+                st["backfilled"] = True  # живой docker видели хотя бы один заход
+                st["max_ts_utc"] = max_ts.isoformat() if max_ts else None
+                st["last_run_utc"] = now.isoformat(timespec="seconds")
+                try:
+                    _atomic_write_json(GEN_STATE_PATH, st)
+                except OSError:
+                    pass
+    return gen_days_from_buckets(buckets)
+
+
 def collect(days: float = 30.0) -> dict:
     """Собрать снимок серверных метрик. days не используется — сигнатура общая."""
     counters: dict = {}
@@ -277,11 +589,19 @@ def collect(days: float = 30.0) -> dict:
         except Exception:
             pass  # со state-файлом проблемы — показываем как минимум текущий бут
 
+    # дневной ряд gen throughput: добор docker-логов в персистентные бакеты;
+    # нет docker / ошибка — прошлые бакеты, наружу не падаем
+    try:
+        gen_days = _update_gen_days()
+    except Exception:
+        gen_days = []
+
     return {
         "updated_at": _now_iso(),
         "online": online,
         "counters": counters,
         "info": info,
+        "gen_tps_days": gen_days,
     }
 
 
@@ -306,12 +626,16 @@ def main() -> int:
     i = snap["info"]
     usage = i.get("kv_pool", {}).get("token_usage", i.get("token_usage"))
     usage_s = f"{usage * 100:.1f}%" if isinstance(usage, (int, float)) else "—"
+    gd = snap.get("gen_tps_days") or []
+    g_last = gd[-1] if gd else None
+    gen_s = (f" gen_tps_days={len(gd)} (last {g_last['date']}: p50={g_last['p50']} n={g_last['n']})"
+             if g_last else f" gen_tps_days={len(gd)}")
     print(
         f"server online={snap['online']} "
         f"prompt_total={_fmt(c.get('prompt_total'))} "
         f"generation_total={_fmt(c.get('generation_total'))} "
         f"max_total_num_tokens={_fmt(i.get('max_total_num_tokens'))} "
-        f"kv_usage={usage_s} -> {out_path}"
+        f"kv_usage={usage_s}{gen_s} -> {out_path}"
     )
     return 0
 
