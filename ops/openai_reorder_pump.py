@@ -53,8 +53,19 @@ def reorder_body(raw: bytes):
         return raw, False
     def is_sys(m):
         return isinstance(m, dict) and m.get("role") in SYS_ROLES
-    # Anthropic-isms, которые наш OpenAI-пайр не знает: маркеры промпт-кэша.
+    # Anthropic-isms, которые наш OpenAI-пайр не знает: маркеры промпт-кэша
+    # и anthropic-only поля верхнего уровня, которые ZCode тащит и в OpenAI wire.
     stripped = 0
+    for junk_top in ("thinking", "output_config", "context_management"):
+        if junk_top in obj:
+            del obj[junk_top]
+            stripped += 1
+    # Anthropic prefill-ассистент без content — OpenAI-пайр требует content у msgs
+    for m in msgs:
+        if isinstance(m, dict) and ("content" not in m or
+                                    (m.get("role") == "assistant" and m.get("content") is None)):
+            m["content"] = ""
+            stripped += 1
     for m in msgs:
         if isinstance(m, dict):
             for junk in ("cache_control", "cacheControl"):
@@ -83,6 +94,54 @@ def reorder_body(raw: bytes):
         return raw, False
     obj["messages"] = head + tail
     return json.dumps(obj, ensure_ascii=False).encode("utf-8"), True
+
+
+def anthropic_fixup(raw: bytes):
+    """POST /v1/messages: ZCode шлёт thinking:{type:enabled} без budget_tokens
+    (схема Pennyroyal требует >=1024) и redacted_thinking в истории (405-подобный
+    отказ). Бюджет на бэкенде всё равно не исполняется — дописываем минимальный;
+    редacted-блоки вырезаем."""
+    try:
+        obj = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return raw, False
+    if not isinstance(obj, dict):
+        return raw, False
+    changed = False
+    th = obj.get("thinking")
+    if isinstance(th, dict) and th.get("type") == "enabled" and "budget_tokens" not in th:
+        cap = obj.get("max_tokens") or 4096
+        th["budget_tokens"] = max(1024, min(cap // 2, 8192))
+        changed = True
+    msgs = obj.get("messages")
+    if isinstance(msgs, list):
+        for m in msgs:
+            if isinstance(m, dict):
+                for junk in ("cache_control", "cacheControl"):
+                    if junk in m:
+                        del m[junk]
+                        changed = True
+            c = m.get("content") if isinstance(m, dict) else None
+            if isinstance(c, list):
+                keep = [b for b in c if not (isinstance(b, dict) and b.get("type") == "redacted_thinking")]
+                if len(keep) != len(c):
+                    m["content"] = keep if keep else [{"type": "text", "text": ""}]
+                    changed = True
+                for b in m["content"] if isinstance(m.get("content"), list) else []:
+                    if isinstance(b, dict):
+                        for junk in ("cache_control", "cacheControl"):
+                            if junk in b:
+                                del b[junk]
+                                changed = True
+        for t in (obj.get("tools") or []):
+            if isinstance(t, dict):
+                for junk in ("cache_control", "cacheControl"):
+                    if junk in t:
+                        del t[junk]
+                        changed = True
+    if changed:
+        return json.dumps(obj, ensure_ascii=False).encode("utf-8"), True
+    return raw, False
 
 
 def read_head(f):
@@ -132,11 +191,17 @@ def handle(tls):
             while len(body) < clen:
                 body += f.read(clen - len(body))
             out_body = body
-            if method == "POST" and path.rstrip("/").endswith("/chat/completions") and 0 < clen <= MAX_BODY:
-                out_body, changed = reorder_body(body)
-                if changed:
-                    hdrs["content-length"] = str(len(out_body))
-                    log(f"reorder: hoisted system msgs ({path}, {clen}->{len(out_body)}B)")
+            if method == "POST" and 0 < clen <= MAX_BODY:
+                if path.rstrip("/").endswith("/chat/completions"):
+                    out_body, changed = reorder_body(body)
+                    if changed:
+                        hdrs["content-length"] = str(len(out_body))
+                        log(f"reorder: hoisted/cleaned ({path}, {clen}->{len(out_body)}B)")
+                elif path.rstrip("/").endswith("/messages"):
+                    out_body, changed = anthropic_fixup(body)
+                    if changed:
+                        hdrs["content-length"] = str(len(out_body))
+                        log(f"anthropic-fixup: thinking budget/redacted ({path}, {clen}->{len(out_body)}B)")
             head_bytes = (reqline.encode("latin-1") + b"\r\n"
                           + b"\r\n".join(f"{k}: {v}".encode("latin-1") for k, v in hdrs.items())
                           + b"\r\n\r\n")
@@ -157,8 +222,26 @@ def handle(tls):
                 rhl[k.decode("latin-1").lower().strip()] = v.decode("latin-1").strip()
             tls.sendall(rh + b"\r\n\r\n" + rrest)
             if " 400 " in rl or " 422 " in rl or " 500 " in rl:
-                peek = rrest[:1200]
-                log(f"{rl} body[:{len(peek)}]: {peek.decode('utf-8','replace')[:900]!r}")
+                peek = rrest
+                if "content-length" in rhl and len(peek) < int(rhl["content-length"]):
+                    try:
+                        while len(peek) < int(rhl["content-length"]):
+                            c = up.recv(min(1024, int(rhl["content-length"]) - len(peek)))
+                            if not c:
+                                break
+                            peek += c
+                            tls.sendall(c)
+                    except OSError:
+                        pass
+                log(f"{rl} resp body[:{min(len(peek),1200)}]: {peek.decode('utf-8','replace')[:900]!r}")
+                try:
+                    o = json.loads(out_body.decode("utf-8"))
+                    summ = {"keys": sorted(o.keys()),
+                            "roles": [m.get("role") for m in o.get("messages", [])][:6],
+                            "n_msgs": len(o.get("messages", []))}
+                except Exception:
+                    summ = {"raw_head": out_body[:200].decode("utf-8", "replace")}
+                log(f"  req summary: {summ}")
             te = rhl.get("transfer-encoding", "").lower()
             if "chunked" in te or "text/event-stream" in rhl.get("content-type", ""):
                 pump_raw(tls, up)
