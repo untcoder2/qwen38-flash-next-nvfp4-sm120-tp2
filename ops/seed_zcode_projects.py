@@ -14,15 +14,14 @@ WANT = ['D:\\llm', 'D:\\vpncode', 'D:\\linuxvpn', 'D:\\router',
         'D:\\scratchpad\\secneo_lab']
 
 def main() -> int:
-    # refuse to run while the app can clobber us: its lockfile is held
-    lk = Path('C:/Users/abcd/AppData/Roaming/ZCode/lockfile')
-    try:
-        lk.open('r+b').close()
-        print('STOP: ZCode запущен (lockfile держится) — закрой его полностью, '
-              'включая трей, и повтори.')
+    # refuse to run while the app can clobber us; lockfile probe proved too
+    # weak (r+b succeeds while Electron holds it), so check processes instead
+    import subprocess
+    r = subprocess.run(['tasklist', '/FI', 'IMAGENAME eq ZCode.exe'],
+                       capture_output=True, text=True)
+    if 'ZCode.exe' in r.stdout:
+        print('STOP: ZCode запущен — закрой его полностью, включая трей, и повтори.')
         return 1
-    except OSError:
-        pass
     d = json.loads(P.read_text(encoding='utf-8'))
     have = {os.path.normcase(os.path.normpath(x)) for x in d.get('recentProjects', [])}
     out = list(d.get('recentProjects', []))
