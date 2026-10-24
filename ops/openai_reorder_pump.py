@@ -14,7 +14,7 @@
 одной строкой в stdout.
 
 Env: PUMP_PORT(8744) PUMP_UP_HOST(penny) PUMP_UP_PORT(8001)
-     PUMP_CERT PUMP_KEY PUMP_LOG
+     PUMP_CERT PUMP_KEY PUMP_LOG PUMP_UP_READ(120)
 """
 import json
 import os
@@ -30,6 +30,8 @@ UPSTREAM = (os.environ.get("PUMP_UP_HOST", "penny"),
 CERT = os.environ.get("PUMP_CERT", "/tls/server.pem")
 KEY = os.environ.get("PUMP_KEY", "/tls/server.key")
 IDLE_TIMEOUT = float(os.environ.get("PUMP_IDLE", "600"))
+_UP = float(os.environ.get("PUMP_UP_READ", "120"))
+UP_READ_TIMEOUT = _UP if 5 <= _UP <= 600 else 120  # also traps nan/garbage
 SYS_ROLES = ("system", "developer")
 MAX_HEAD = 64 * 1024
 MAX_BODY = 64 * 1024 * 1024
@@ -183,6 +185,9 @@ def handle(tls):
         ctx.verify_mode = ssl.CERT_NONE
         up = ctx.wrap_socket(socket.create_connection(UPSTREAM, timeout=15),
                              server_hostname="qwen-infer")
+        # create_connection's timeout persists on reads; queue+prefill at big
+        # contexts exceed 15 s — don't abort the wait and force a client retry
+        up.settimeout(UP_READ_TIMEOUT)
         f = tls.makefile("rb")
         while True:
             reqline, hdrs, rest = read_head(f)
