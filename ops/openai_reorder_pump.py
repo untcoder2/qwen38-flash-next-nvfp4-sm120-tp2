@@ -14,7 +14,7 @@
 одной строкой в stdout.
 
 Env: PUMP_PORT(8744) PUMP_UP_HOST(penny) PUMP_UP_PORT(8001)
-     PUMP_CERT PUMP_KEY PUMP_LOG PUMP_UP_READ(120)
+     PUMP_CERT PUMP_KEY PUMP_LOG PUMP_UP_READ(120) PUMP_MAX_CONN(64)
 """
 import json
 import os
@@ -31,7 +31,9 @@ CERT = os.environ.get("PUMP_CERT", "/tls/server.pem")
 KEY = os.environ.get("PUMP_KEY", "/tls/server.key")
 IDLE_TIMEOUT = float(os.environ.get("PUMP_IDLE", "600"))
 _UP = float(os.environ.get("PUMP_UP_READ", "120"))
-UP_READ_TIMEOUT = _UP if 5 <= _UP <= 600 else 120  # also traps nan/garbage
+UP_READ_TIMEOUT = _UP if 5 <= _UP <= 600 else 120  # range-check traps nan/inf too
+_MAXC = int(os.environ.get("PUMP_MAX_CONN", "64"))
+MAX_CONNS = _MAXC if 2 <= _MAXC <= 512 else 64
 SYS_ROLES = ("system", "developer")
 MAX_HEAD = 64 * 1024
 MAX_BODY = 64 * 1024 * 1024
@@ -185,6 +187,7 @@ def handle(tls):
         ctx.verify_mode = ssl.CERT_NONE
         up = ctx.wrap_socket(socket.create_connection(UPSTREAM, timeout=15),
                              server_hostname="qwen-infer")
+        tls.settimeout(IDLE_TIMEOUT)  # handshake bound was 10 s on main; this socket earns the idle budget
         # create_connection's timeout persists on reads; queue+prefill at big
         # contexts exceed 15 s — don't abort the wait and force a client retry
         up.settimeout(UP_READ_TIMEOUT)
@@ -306,6 +309,36 @@ def pump_raw(a, b):
     t.join(timeout=2)
 
 
+def health_serve(port=8001):
+    """Plain-HTTP /health on 127.0.0.1:8001 — the port baked into the base
+    image's HEALTHCHECK probe; inside this container nothing else uses it."""
+    try:
+        hs = socket.socket()
+        hs.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        hs.bind(("127.0.0.1", port))
+        hs.listen(8)
+    except OSError as e:
+        log("health bind fail:", e)
+        return
+    ok = b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"
+    while True:
+        try:
+            cc, _ = hs.accept()
+        except OSError as e:
+            # ECONNABORTED/EMFILE are transient; only a dead hs spins hot
+            log("health accept err:", e)
+            time.sleep(1)
+            continue
+        try:
+            cc.settimeout(2)
+            cc.recv(256)
+            cc.sendall(ok)
+        except OSError:
+            pass
+        finally:
+            cc.close()
+
+
 def main():
     sctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     sctx.load_cert_chain(CERT, KEY)
@@ -318,13 +351,32 @@ def main():
     ls.bind(LISTEN)
     ls.listen(64)
     log(f"reorder-pump on {LISTEN} -> {UPSTREAM} (cert={CERT})")
+    threading.Thread(target=health_serve, daemon=True).start()
+    conns = threading.BoundedSemaphore(MAX_CONNS)
+    dropped = [0, 0.0]  # [count, last_log_ts] — cap flood is attacker-paced
     while True:
         c, _ = ls.accept()
+        if not conns.acquire(blocking=False):
+            now = time.time()
+            dropped[0] += 1
+            if now - dropped[1] > 10:
+                log(f"at cap ({MAX_CONNS}); dropped {dropped[0]} in last 10s")
+                dropped[0], dropped[1] = 0, now
+            c.close(); continue
         try:
+            c.settimeout(10)  # bounded handshake: a slowloris can't stall accept loop
             tls = sctx.wrap_socket(c, server_side=True)
         except (ssl.SSLError, OSError) as e:
-            log("hs err:", e); c.close(); continue
-        threading.Thread(target=handle, args=(tls,), daemon=True).start()
+            conns.release(); log("hs err:", e); c.close(); continue
+        def svc(t=tls):
+            try:
+                handle(t)
+            finally:
+                conns.release()
+        try:
+            threading.Thread(target=svc, daemon=True).start()
+        except RuntimeError:
+            conns.release(); tls.close(); log("spawn fail")
 
 
 if __name__ == "__main__":
