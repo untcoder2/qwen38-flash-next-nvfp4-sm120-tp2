@@ -24,3 +24,12 @@ full-chain (серверный cert-файл уже обновлён) — фро
 Сносится: `docker rm -f zcode-pump; docker network rm penny-pump`.
 Чистовик — апстрим-фиксы: релакс thinking-budget на фронте Pennyroyal + мягкая
 расстановка system в OpenAI-сервинге sglang; до них мост живёт осознанно.
+
+Итоговая формулировка корня: ошибка идёт НЕ из валидатора sglang, а из чат-шаблона чекпойнта
+(`chat_template.jinja`, `not loop.first` под `raise_exception`) — system ровно один и
+только первым. Фронт склеивает N system в один через 
+
+; E2E в точной форме ZCode
+(3 system + tools + reasoning_effort + max_completion_tokens) = 200.
+
+Апстрим-ишью заведены 24.10 (без рестартов, чисто наружу): #124 thinking-budget релакс, #125 флаг склейки system-сообщений.
