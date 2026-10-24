@@ -11,11 +11,8 @@ import os
 import re
 import sys
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding='utf-8')
-    except Exception:
-        pass
+def err(msg):
+    sys.stderr.buffer.write(msg.encode('utf-8', 'replace'))
 
 ARCHIVE = re.compile(r'[\\/]\.kimi[\\-]code[\\/]|kimi[\\-]code[\\/]|kimi-sync[\\/]', re.I)
 PREFIX = re.compile(
@@ -32,16 +29,15 @@ def main():
     except Exception:
         return 0
     if ARCHIVE.search(fp):
-        sys.stderr.write('guard_write: БЛОК — это замороженный Kimi-архив/синк; '
-                         'канон скилов и правил теперь в ~/.zcode, правь там.\n')
+        err('guard_write: БЛОК — это замороженный Kimi-архив/синк; '
+            'канон скилов и правил теперь в ~/.zcode, правь там.\n')
         return 2
     if PREFIX.search(fp):
         print(json.dumps({
             'hookEventName': 'PreToolUse',
             'permissionDecision': 'ask',
             'permissionDecisionReason': 'правка файла префикса (AGENTS/skills/settings) = '
-            'ре-префилл всех живых сессий. батчить правки в один заход; продолжить?'},
-            ensure_ascii=False))
+            'ре-префилл всех живых сессий. батчить правки в один заход; продолжить?'}))
     return 0
 
 if __name__ == '__main__':

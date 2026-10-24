@@ -7,18 +7,20 @@ import json
 import re
 import sys
 
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding='utf-8')
-    except Exception:
-        pass
+def err(msg):  # строго UTF-8 в stderr: консольная кодовая страница Windows иначе даст кракозябры
+    sys.stderr.buffer.write(msg.encode('utf-8', 'replace'))
 
 DENY = [
     (r'docker\s+image\s+prune', 'image prune запрещён (rollback-теги, docs/rollback.md)'),
     (r'(echo[^|;\n]*>>?\s*\S*|>>?\s*\S*)active\.cfg', 'смена active.cfg — только владельцем (жёсткий стоп)'),
     (r'systemctl\s+(restart|stop)\s+(sglang|vllm-watchdog)',
      'restart/stop sglang/vllm-watchdog — жёсткий стоп: нужен маркер owner-go и явное «да» владельца'),
+    (r'docker\s+rm\s+(-f\s+|--force\s+)?"?penny\b',
+     'снос контейнера penny = остановка инфера вместе с живыми сессиями; только владелец'),
+    (r'ops/rsh\.sh.*\bsudo\b', 'sudo на хосте — вне NOPASSWD-списка это пароль владельца; '
+     'читательные sudo -n -l / status / is-active пропускаются'),
 ]
+SUDO_OK = re.compile(r'sudo\s+-n\s+(-l|--list)\b|systemctl\s+status|is-active|journalctl', re.I)
 
 def main():
     try:
@@ -28,8 +30,9 @@ def main():
         return 0
     for pat, why in DENY:
         if re.search(pat, cmd, re.I) and 'owner-go' not in cmd:
-            sys.stderr.write(
-                f'guard_bash: БЛОК — {why}. Если владелец только что сказал «да» на '
+            if 'sudo' in pat and SUDO_OK.search(cmd):
+                continue
+            err(f'guard_bash: БЛОК — {why}. Если владелец только что сказал «да» на '
                 f'этот конкретный шаг — повтори команду с комментарием `owner-go` '
                 f'в конце строки. Без такого «да» не обходить.\n')
             return 2

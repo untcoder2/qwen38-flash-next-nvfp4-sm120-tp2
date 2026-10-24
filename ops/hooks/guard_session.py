@@ -1,0 +1,26 @@
+# SessionStart hook: один раз в сессию напоминает, что среда не «голая»:
+# гарды PreToolUse активны, owner-go — единственный обход, ревью-гейт обязателен.
+import json
+import sys
+
+MSG = ('Среда ZCode: активны хуки-гарды (guard_bash: блокирует image prune, '
+       'active.cfg, restart/stop sglang|vllm-watchdog, docker rm penny, sudo '
+       'вне allow-list; обход только маркер owner-go после явного «да» '
+       'владельца — не изобретать его сам). guard_post: py_compile/bash -n '
+       'после правок. Ревью-гейт: security-reviewer+code-reviewer до коммита '
+       'на бою, финал — arbiter. Тяжёлое — диспатч сабагентам (planner/'
+       'verifier/…), основная сессия координирует.')
+
+def main():
+    try:
+        json.load(sys.stdin)
+    except Exception:
+        pass
+    try:
+        print(json.dumps({'hookEventName': 'SessionStart', 'additionalContext': MSG}))
+    except Exception:
+        pass
+    return 0
+
+if __name__ == '__main__':
+    sys.exit(main())
