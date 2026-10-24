@@ -1,0 +1,48 @@
+# PreToolUse hook (Edit/Write/ApplyPatch): две функции.
+# 1) DENY (exit 2): ~/.kimi-code/** — замороженный архив (решение 24.10: ZCode
+#    канон), и sync-скрипты из ops/archive/kimi-sync (запуск/правка воскресили
+#    бы устаревший канон поверх живого).
+# 2) ASK (JSON permissionDecision=ask): правки файлов, которые сбрасывают
+#    префиксный кеш живых сессий (AGENTS.md, ~/.zcode/skills|commands|agents,
+#    settings.json) — пусть человек подтвердит, как того правило о кеше.
+# Не распознали вход — молча пропускаем.
+import json
+import os
+import re
+import sys
+
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
+ARCHIVE = re.compile(r'[\\/]\.kimi[\\-]code[\\/]|kimi[\\-]code[\\/]|kimi-sync[\\/]', re.I)
+PREFIX = re.compile(
+    r'(AGENTS\.md$|CLAUDE\.md$|settings\.json$|[\\/]\.zcode[\\/](skills|commands|agents)[\\/])', re.I)
+
+def main():
+    try:
+        data = json.load(sys.stdin)
+        ti = data.get('tool_input', {})
+        fp = ti.get('file_path') or ti.get('path') or ''
+        if not fp:
+            return 0
+        fp = os.path.normpath(str(fp))
+    except Exception:
+        return 0
+    if ARCHIVE.search(fp):
+        sys.stderr.write('guard_write: БЛОК — это замороженный Kimi-архив/синк; '
+                         'канон скилов и правил теперь в ~/.zcode, правь там.\n')
+        return 2
+    if PREFIX.search(fp):
+        print(json.dumps({
+            'hookEventName': 'PreToolUse',
+            'permissionDecision': 'ask',
+            'permissionDecisionReason': 'правка файла префикса (AGENTS/skills/settings) = '
+            'ре-префилл всех живых сессий. батчить правки в один заход; продолжить?'},
+            ensure_ascii=False))
+    return 0
+
+if __name__ == '__main__':
+    sys.exit(main())
