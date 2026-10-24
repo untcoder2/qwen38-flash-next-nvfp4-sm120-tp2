@@ -21,6 +21,17 @@ DENY = [
      'читательные sudo -n -l / status / is-active пропускаются'),
 ]
 SUDO_OK = re.compile(r'sudo\s+-n\s+(-l|--list)\b|systemctl\s+status|is-active|journalctl', re.I)
+# Мутационные глаголы: команда с ними НЕ считается читательской, даже если
+# read-only маркер в ней тоже есть (24.10: подстроковый SUDO_OK обходился
+# составной «…status && …restart» внутри кавычек rsh.sh — кавычки резать
+# нельзя, поэтому fail-closed по всей строке).
+SUDO_MUT = re.compile(r'\b(restart|stop|start|apply|arm|disarm|reboot|poweroff|halt|flush|'
+                      r'rm\b|rmdir|mv\b|dd\b|truncate|tee\b|sed\s+-i)|>\s*/etc', re.I)
+
+
+def _sudo_readonly(cmd: str) -> bool:
+    return bool(SUDO_OK.search(cmd)) and not SUDO_MUT.search(cmd)
+
 
 def main():
     try:
@@ -30,7 +41,7 @@ def main():
         return 0
     for pat, why in DENY:
         if re.search(pat, cmd, re.I) and 'owner-go' not in cmd:
-            if 'sudo' in pat and SUDO_OK.search(cmd):
+            if 'sudo' in pat and _sudo_readonly(cmd):
                 continue
             err(f'guard_bash: БЛОК — {why}. Если владелец только что сказал «да» на '
                 f'этот конкретный шаг — повтори команду с комментарием `owner-go` '
