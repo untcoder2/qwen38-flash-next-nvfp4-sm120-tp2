@@ -23,3 +23,4 @@ __pycache__/
 /MANIFEST.json
 # vendor-клон upstream specforge (14M со своим .git) — не для нашего индекса
 specforge-ext/.upstream/
+.mimosa/
