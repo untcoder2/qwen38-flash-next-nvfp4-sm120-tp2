@@ -90,6 +90,18 @@ def reorder_body(raw: bytes):
         log(f"reorder: stripped {stripped} cache_control marker(s)")
     head = [m for m in msgs if is_sys(m)]
     tail = [m for m in msgs if not is_sys(m)]
+    if len(head) > 1:
+        # шаблон чекпойнта допускает ровно ОДИН system (только первым) — склеиваем
+        def as_text(m):
+            c = m.get("content")
+            if isinstance(c, str):
+                return c
+            if isinstance(c, list):
+                return "\n".join(b.get("text", "") for b in c if isinstance(b, dict))
+            return ""
+        merged = {"role": "system",
+                  "content": "\n\n".join(t for t in (as_text(m) for m in head) if t.strip())}
+        head = [merged]
     if (not head or msgs[:len(head)] == head) and not stripped:   # уже правильно
         return raw, False
     obj["messages"] = head + tail
