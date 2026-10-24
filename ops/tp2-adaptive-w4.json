@@ -1,0 +1,17 @@
+{
+  "_comment": [
+    "ops fork of the bundled 3.1 width policy: fixed W4 (steps 3) at EVERY",
+    "concurrency. Rationale: at our real agent-traffic accept ~2.5 the wide C1",
+    "draft pays 4 extra head passes for no extra tokens (measured: agent-step",
+    "tps -30% vs the v3.0.1 acceptance-driven engine on the same golden set).",
+    "One candidate per tier means no EMA, no holds, no switch events, period.",
+    "Long greedy output loses only the acceptance above 4 (see bench_suite long",
+    "bucket before/after)."
+  ],
+  "1": {
+    "candidate_steps": [3]
+  },
+  "2": {
+    "candidate_steps": [3]
+  }
+}

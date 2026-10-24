@@ -1,0 +1,43 @@
+{
+  "_comment": [
+    "Golden prompt set for ops/bench_suite.py. EDIT CAREFULLY: any change to text/",
+    "max_new_tokens/sampling invalidates cross-day comparisons (the whole point).",
+    "If you must change it, bump version and re-record the baseline.",
+    "short_* mimic real agent steps (short outputs, temperature=1.0 as served);",
+    "med_* are ordinary chat answers; long_* are deterministic greedy long-form",
+    "(three shapes that historically differ in accept length: enumerated, prose",
+    "reasoning, code file)."
+  ],
+  "version": 1,
+  "short": [
+    {"text": "Что делает команда `git switch -c hotfix`? Ответь одной строкой.", "max_new_tokens": 90},
+    {"text": "В Python список [3,1,2]. Что вернёт sorted(x)[-2]? Только ответ.", "max_new_tokens": 40},
+    {"text": "Придумай имя ветки для фикса падения парсера tool-call на пустом блоке.", "max_new_tokens": 50},
+    {"text": "Объясни одно предложение: `--mem-fraction-static 0.95`.", "max_new_tokens": 110},
+    {"text": "Какой HTTP-код вернуть на невалидный JSON body? Одно слово+одна причина.", "max_new_tokens": 60},
+    {"text": "Найди баг: for i in range(len(a)-1): if a[i]>a[i+1]: swap(a,i,i).", "max_new_tokens": 140},
+    {"text": "Сократи промпт до 1 строки: 'Проверь что конфиг загружен до инициализации лога и логгер пишет путь конфигa'.", "max_new_tokens": 70},
+    {"text": "Что логичнее для кэша черновиков MTP: LRU или FIFO? Одна строка аргумента.", "max_new_tokens": 90},
+    {"text": "Дай shell-однострочник: показать топ-5 процессов по RSS.", "max_new_tokens": 60},
+    {"text": "Как назвать функцию, которая пересобирает NIXL-неймспейс? 2 варианта.", "max_new_tokens": 80},
+    {"text": "Ошибка: 'Killed' от docker run при загрузке весов. Одна главная причина.", "max_new_tokens": 100},
+    {"text": "Переведи на русский одну строку: 'cache identity must cover effective precision'.", "max_new_tokens": 50},
+    {"text": "Сколько токенов примет W4-черновик при идеальном попадании? Число.", "max_new_tokens": 30},
+    {"text": "Почему greedy-бенч завышает accept length? Одна строка.", "max_new_tokens": 110},
+    {"text": "Что проверить первым, если TTFT вырос после рестарта? Одна строка.", "max_new_tokens": 100},
+    {"text": "Напиши regex для строки 'steps 7 -> 3' в логе. Только regex.", "max_new_tokens": 70}
+  ],
+  "med": [
+    {"text": "Коротко (до 150 слов): как работает спекулятивное декодирование с MTP-головкой и почему акцепт падает на нешаблонном тексте.", "max_new_tokens": 320},
+    {"text": "Составь план проверки REST-эндпоинта на regression: 5 пунктов с рисками по одному предложению.", "max_new_tokens": 260},
+    {"text": "Объясни junior-инженеру разницу между radix-кэшем префиксов и KV-кэшем, с аналогией из ОС.", "max_new_tokens": 300},
+    {"text": "Дай 4 причины, по которым агент начал повторять один и тот же tool-call, и по одной контрмере на каждую.", "max_new_tokens": 340},
+    {"text": "Кратко: чем опасна тихая подмена дефолтов в форке движка с точки зрения воспроизводимости тестов.", "max_new_tokens": 280},
+    {"text": "Напиши unit-тест (pytest) для функции парсинга 'steps A -> B' из строки лога, с краевым случаем.", "max_new_tokens": 360}
+  ],
+  "long": [
+    {"text": "Перечисли словами числами 200...1 списком с новой строки, без пояснений, формат: 'N. слово'.", "max_new_tokens": 2048, "kind": "enumerated"},
+    {"text": "Рассуждай по-русски: оцени три архитектурных варианта хранения KV-кэша для гибридной Mamba-модели при мульти-тёрн агентской нагрузке; для каждого — механизм, цена, риск; затем выбери и аргументируй. Минимум 1200 слов, без списков-простыней, сплошным текстом.", "max_new_tokens": 2048, "kind": "prose"},
+    {"text": "Напиши один самодостаточный python-файл (~150 строк): кольцевой булет-таймер кэша фиксированного размера с TTL, lock-free чтением (threading), статистикой хитов и докстрингами; без тестов, только код и комментарии.", "max_new_tokens": 2048, "kind": "code"}
+  ]
+}
