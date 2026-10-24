@@ -53,9 +53,33 @@ def reorder_body(raw: bytes):
         return raw, False
     def is_sys(m):
         return isinstance(m, dict) and m.get("role") in SYS_ROLES
+    # Anthropic-isms, которые наш OpenAI-пайр не знает: маркеры промпт-кэша.
+    stripped = 0
+    for m in msgs:
+        if isinstance(m, dict):
+            for junk in ("cache_control", "cacheControl"):
+                if junk in m:
+                    del m[junk]
+                    stripped += 1
+            c = m.get("content")
+            if isinstance(c, list):  # Anthropic-блоки внутри content
+                for blk in c:
+                    if isinstance(blk, dict):
+                        for junk in ("cache_control", "cacheControl"):
+                            if junk in blk:
+                                del blk[junk]
+                                stripped += 1
+    for t in (obj.get("tools") or []):           # антропик кэширует и тулзы
+        if isinstance(t, dict):
+            for junk in ("cache_control", "cacheControl"):
+                if junk in t:
+                    del t[junk]
+                    stripped += 1
+    if stripped:
+        log(f"reorder: stripped {stripped} cache_control marker(s)")
     head = [m for m in msgs if is_sys(m)]
     tail = [m for m in msgs if not is_sys(m)]
-    if not head or msgs[:len(head)] == head:   # уже правильно
+    if (not head or msgs[:len(head)] == head) and not stripped:   # уже правильно
         return raw, False
     obj["messages"] = head + tail
     return json.dumps(obj, ensure_ascii=False).encode("utf-8"), True
@@ -132,6 +156,9 @@ def handle(tls):
                 k, _, v = ln.partition(b":")
                 rhl[k.decode("latin-1").lower().strip()] = v.decode("latin-1").strip()
             tls.sendall(rh + b"\r\n\r\n" + rrest)
+            if " 400 " in rl or " 422 " in rl or " 500 " in rl:
+                peek = rrest[:1200]
+                log(f"{rl} body[:{len(peek)}]: {peek.decode('utf-8','replace')[:900]!r}")
             te = rhl.get("transfer-encoding", "").lower()
             if "chunked" in te or "text/event-stream" in rhl.get("content-type", ""):
                 pump_raw(tls, up)

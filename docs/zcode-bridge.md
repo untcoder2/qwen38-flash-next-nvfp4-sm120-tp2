@@ -11,7 +11,11 @@ SSE — raw-дуплексом. Обход ufw — docker `-p 8744:8744` (DOCKER
 на `penny:8001` (хостовый INPUT с docker0 файрвол режет — проверено).
 
 Подключение в ZCode: тип OpenAI-compatible, base `https://192.168.2.127:8744/v1`,
-модель `qwen3.8-flash-next`, ключ любой.
+модель `qwen3.8-flash-next`, ключ любой. Фронт так же вырезает маркеры
+`cache_control`/`cacheControl` (ZCode мажет ими system-блоки и tools по-антропиковски;
+наш OpenAI-пайр их не знает → 400) и отдаёт полную TLS-цепочку — Windows-curl требует
+`--ssl-no-revoke` (у нашего CA нет CRL), узловой клиент Node/ZCode — нет.
+При любом 400/422/500 фронт пишет тело ошибки в `docker logs zcode-pump`.
 
 Жизненный цикл: стартует сам (`--restart unless-stopped`). После любого
 рестарта sglang переподключить penny к сети: `docker network connect penny-pump penny`
