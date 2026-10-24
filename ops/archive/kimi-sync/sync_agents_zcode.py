@@ -6,6 +6,8 @@
 # sync_skills_zcode.py's frontmatter validator). Kimi's CLAUDE.md is NOT
 # synced: it is a workaround for a Kimi ReadMediaFile bug, irrelevant to ZCode.
 # Re-run after editing the canonical: py -3 D:/llm/ops/sync_agents_zcode.py
+# ARCHIVED 24.10.2026: ZCode стал каноном, ~/.zcode/AGENTS.md правится руками;
+# этот генератор затрёт канон устаревшей Kimi-версией — не запускать (README).
 import re
 import sys
 from pathlib import Path
