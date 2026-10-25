@@ -1472,6 +1472,19 @@ URL возвращён владельцем на :1234; `kill` по pid-файл
   поправка A 149→179 как доказательство; (4) не строить выводов о скорости из
   одного greedy-окна с шаблонным промптом.
 
+## 25.10: TODO (пережить /new)
+
+1. **Ростер ролей сабагентов** — `.agents/roster.md`: security-reviewer / code-reviewer /
+   scout / ops-coder / bench-runner; карточки взять с полки сабагентов ZCode (её хвалили),
+   модели приписать по правилу 18.10 (ревью — xhigh-pinned, скаут — fast), у bench-runner
+   зафиксировать тишину/chain-дисциплину. С этого момента рои ходят по карточкам.
+2. **Потом снести всё наследие ZCode**: контейнер `zcode-pump`, сеть `penny-pump`,
+   cron-гард pumpnet (добавлен другим тредом 24.10 — заодно убрать из crontab),
+   `docs/zcode-bridge.md`, `ops/openai_reorder_pump.py`, `ops/tls_chain_pump.py`,
+   `network.caCertFile` в `~/.zcode/cli/config.json` (+снести бэкав), env
+   `NODE_EXTRA_CA_CERTS`, `certs/zcode-trust-bundle.pem`. `server.pem` (leaf+CA) НЕ трогать —
+   он серверу на пользу при следующем рестарте.
+
 ## 23.10: Pennyroyal v3.1.1 — фиксированная ширина, accept 5.59; #81 закрыта апстримом
 
 - Вечером 21.10 мейнтейнер закрыл **#81** релокацией механизма: «shipped in 3.1,
