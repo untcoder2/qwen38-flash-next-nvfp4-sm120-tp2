@@ -92,23 +92,41 @@ def reorder_body(raw: bytes):
                     stripped += 1
     if stripped:
         log(f"reorder: stripped {stripped} cache_control marker(s)")
-    head = [m for m in msgs if is_sys(m)]
-    tail = [m for m in msgs if not is_sys(m)]
+    # leading-run system'ов склеиваем в один (шаблон: ровно один, первым);
+    # СЕРЕДИННЫЕ system превращаем в user на их же месте — перенос волатильного
+    # реминдера в голову инвалидировал бы весь radix-префикс каждый ход.
+    def as_text(m):
+        c = m.get("content")
+        if isinstance(c, str):
+            return c
+        if isinstance(c, list):
+            return "\n".join(b.get("text", "") for b in c if isinstance(b, dict))
+        return ""
+    lead = 0
+    while lead < len(msgs) and is_sys(msgs[lead]):
+        lead += 1
+    head, tail, moved = [], [], False
+    for i, m in enumerate(msgs):
+        if i < lead:
+            head.append(m)
+        elif is_sys(m):
+            m2 = dict(m)
+            m2["role"] = "user"
+            m2["content"] = "SYSTEM REMINDER:\n" + (as_text(m) or "")
+            tail.append(m2)
+            moved = True
+        else:
+            tail.append(m)
     if len(head) > 1:
-        # шаблон чекпойнта допускает ровно ОДИН system (только первым) — склеиваем
-        def as_text(m):
-            c = m.get("content")
-            if isinstance(c, str):
-                return c
-            if isinstance(c, list):
-                return "\n".join(b.get("text", "") for b in c if isinstance(b, dict))
-            return ""
         merged = {"role": "system",
                   "content": "\n\n".join(t for t in (as_text(m) for m in head) if t.strip())}
         head = [merged]
-    if (not head or msgs[:len(head)] == head) and not stripped:   # уже правильно
+    new_msgs = head + tail
+    if new_msgs == msgs and not stripped:   # уже правильно
         return raw, False
-    obj["messages"] = head + tail
+    if moved:
+        log("reorder: mid-conversation system -> user in place (prefix saved)")
+    obj["messages"] = new_msgs
     return json.dumps(obj, ensure_ascii=False).encode("utf-8"), True
 
 
