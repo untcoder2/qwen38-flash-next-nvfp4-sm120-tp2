@@ -1472,6 +1472,31 @@ URL возвращён владельцем на :1234; `kill` по pid-файл
   поправка A 149→179 как доказательство; (4) не строить выводов о скорости из
   одного greedy-окна с шаблонным промптом.
 
+## 25.10: Хуки-гарды портированы в Kimi Code
+
+- После вопроса «а хуки нам нужны?» и «пробуй»: 4 блока `[[hooks]]` в
+  `~/.kimi-code/config.toml` (бэкап `config.toml.20261025-221357.bak`): PreToolUse
+  Bash→guard_bash, PreToolUse Edit|Write→guard_write, PostToolUse Edit|Write→guard_post,
+  SessionStart→guard_session. Протокол совпал со старым (stdin `tool_input.command`,
+  exit 2 + stderr = блок; fail-open по доке). Активация: `/reload` или новая сессия.
+- Гарды стали двухканальными по `client_type`: ASK/баннер — обёрнутая форма
+  `hookSpecificOutput` для Kimi, плоская для ZCode. Ключевой фикс волны 2 (поймали
+  обе пары ревью): PostToolUse в Kimi observe-only и stdout присоединяется только при
+  exit 0 — прежний exit 2 silently терял синтакс-гейт; теперь kimi→stdout+exit 0,
+  zcode→stderr+exit 2 (байт-в-байт как был). Плюс: str-cast command (трейсбек-путь),
+  UTF-8 stdout, `path`-fallback в guard_post, честный текст баннера.
+- Профиль принуждения (зафиксирован в баннере и ростере): PreToolUse блокирует,
+  PostToolUse наблюдает; owner-go — текстовый маркер, тривиален; Bash-канал ARCHIVE-DENY
+  не энфорсит и правка самих гардов Edit'ом не покрыта — это «перехват случайного +
+  напоминание», не граница безопасности (дисклеймер доков Kimi).
+  FOLLOW-UP натурной проверки после reload: баннер SessionStart (спросить в новой
+  сессии «какие гарды активны», сверить цитату с MSG — не видно = канал не инжектит,
+  править форму вывода); ASK на правке AGENTS.md; блок на `docker image prune`;
+  HOOK NOTICE на записи битого .py.
+- Ревью волны 2: security FIX-FIRST(3) + code FIX-FIRST(1) → раунд 2 оба PASS(0)
+  (матрица 31/31 rc + payload-пробы; схемы Kimi Edit/Write = `path` подтверждены по
+  логам тулзов, `file_path` у Kimi нет).
+
 ## 25.10: TODO выполнен — ростер 13/13, наследие ZCode снесено
 
 - **Ростер (п.1):** `.agents/roster.md`, 13 карточек = 5 ролей из TODO (ревью-пара

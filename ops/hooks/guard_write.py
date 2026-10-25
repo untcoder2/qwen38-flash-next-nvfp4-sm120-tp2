@@ -26,18 +26,27 @@ def main():
         if not fp:
             return 0
         fp = os.path.normpath(str(fp))
+        kimi = 'kimi' in str(data.get('client_type', '')).lower()
     except Exception:
         return 0
     if ARCHIVE.search(fp):
-        err('guard_write: БЛОК — это замороженный Kimi-архив/синк; '
-            'канон скилов и правил теперь в ~/.zcode, правь там.\n')
+        err('guard_write: БЛОК — writes в ~/.kimi-code/** и kimi-sync запрещены '
+            '(канон правил/скиллов — ~/.zcode, заморозка 24.10; доставка правок '
+            'конфига — через shell, вне этого тула).\n')
         return 2
     if PREFIX.search(fp):
-        print(json.dumps({
-            'hookEventName': 'PreToolUse',
-            'permissionDecision': 'ask',
-            'permissionDecisionReason': 'правка файла префикса (AGENTS/skills/settings) = '
-            'ре-префилл всех живых сессий. батчить правки в один заход; продолжить?'}))
+        reason = ('правка файла префикса (AGENTS/skills/settings) = '
+                  'ре-префилл всех живых сессий. батчить правки в один заход; продолжить?')
+        if kimi:
+            print(json.dumps({'hookSpecificOutput': {
+                'hookEventName': 'PreToolUse',
+                'permissionDecision': 'ask',
+                'permissionDecisionReason': reason}}))
+        else:
+            print(json.dumps({
+                'hookEventName': 'PreToolUse',
+                'permissionDecision': 'ask',
+                'permissionDecisionReason': reason}))
     return 0
 
 if __name__ == '__main__':

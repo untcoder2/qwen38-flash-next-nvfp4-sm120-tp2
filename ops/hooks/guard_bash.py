@@ -36,7 +36,7 @@ def _sudo_readonly(cmd: str) -> bool:
 def main():
     try:
         data = json.load(sys.stdin)
-        cmd = data.get('tool_input', {}).get('command', '')
+        cmd = str(data.get('tool_input', {}).get('command', ''))
     except Exception:
         return 0
     for pat, why in DENY:
