@@ -75,7 +75,7 @@ guard_after=$(crontab -l 2>/dev/null | grep -cE '^[^#]*pumpnet-guard\.sh')
 echo "crontab lines after=$cron_after; pumpnet-guard lines after=$guard_after"
 
 echo "### STEP 6: снять хостовый TLS-фронт помпа и удалить файлы"
-# tls_chain_pump запускался nohup'ом (docs/zcode-bridge.md, HEAD) — убить до сноса
+# tls_chain_pump запускался nohup'ом (docs/zcode-bridge.md, ревизия 65c13d5^) — убить до сноса
 # pid-файла, иначе переживёт teardown осиротевшим листенером :8443.
 pid_f="$HOME/agent-tools/tls_chain_pump.pid"
 p=$(cat "$pid_f" 2>/dev/null || true)

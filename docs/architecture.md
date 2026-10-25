@@ -99,7 +99,7 @@ exit 0, никого не убивая. Замок лежит именно в le
 ## Клиент
 
 opencode на десктопе, `C:\Users\abcd\.config\opencode\opencode.jsonc`.
-Провайдер `local` → `http://192.168.2.127:1234/v1`, модель `qwen3.8-flash-next`.
+Провайдер `local` → `https://192.168.2.127:1234/v1` (с 14.10 TLS-only, CA `qwen-home-ca.pem`; с 25.10 главный клиент — Kimi, не opencode), модель `qwen3.8-flash-next`.
 Параметры: `temperature 1.0, top_p 0.95, top_k 20`, `reasoning_effort: xhigh`.
 
 ## Соседние каталоги на хосте

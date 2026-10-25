@@ -6,8 +6,8 @@
 
 ## Правила
 
-- Прод сейчас: `active.cfg` → `serve-penny.sh` → контейнер `penny` на порту 1234.
-- **Откат в одну строку, годится в любой момент:**
+- Снимок правил от 17.09; боёц — current-config (ныне: TLS :1234, лист `serve-penny-311.sh`/qadmtp).
+- Откат эпохи 3.0.1 одной строкой (с 23.10 штатный откат — ПАРОЙ qadmtp301+профиль, см. current-config «Откат»; ниже — глубокий резерв):
   ```bash
   echo serve-fn-bf16mtp.sh > /home/molochko/vllm/active.cfg && sudo systemctl restart sglang
   ```
@@ -96,7 +96,7 @@ cp tp2-serve-flash-next.sh tp2-serve-flash-next.sh.bak
 sed -i 's/^\s*--speculative-[a-z-]*.*\\$//' tp2-serve-flash-next.sh
 sudo systemctl restart sglang
 # дождаться готовности:
-until curl -sf -m 4 http://127.0.0.1:1234/health >/dev/null; do sleep 10; done
+until curl -skf -m 4 https://127.0.0.1:1234/health >/dev/null; do sleep 10; done
 cd /home/molochko/vllm && DEGEN_MAXTOK=32768 python3 _degen.py "спекулятив ВЫКЛ" 3 | tee _degen_off.log
 # вернуть:
 cp /home/molochko/penny/tp2-serve-flash-next.sh.bak /home/molochko/penny/tp2-serve-flash-next.sh

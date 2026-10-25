@@ -3,15 +3,17 @@
 import json
 import sys
 
-MSG = ('Хуки-гарды активны. PreToolUse БЛОКИРУЕТ: image prune, active.cfg, '
-       'restart/stop sglang|vllm-watchdog, docker rm penny, sudo вне allow-list; '
-       'обход — только маркер owner-go после явного «да» владельца (не изобретать '
-       'сам; маркер тривиален текстом, это перехват случайного, не граница '
-       'безопасности). PreToolUse Edit/Write: DENY на ~/.kimi-code-архив, ASK на '
-       'файлы префикса (AGENTS/skills/settings). PostToolUse (py_compile/bash -n) '
-       '— в Kimi observe-only: notice через stdout, не блокирует. Ревью-гейт: '
-       'security-reviewer+code-reviewer до коммита на бою, финал — arbiter. '
-       'Тяжёлое — диспатч сабагентам (roster), основная сессия координирует.')
+MSG = ('Хуки-гарды активны. PreToolUse БЛОКИРУЕТ: image prune (любая форма), '
+       'active.cfg, restart/stop sglang|vllm-watchdog, docker rm penny, sudo вне '
+       'allow-list, shell-запись (>, tee, sed -i) в .agents/, ops/hooks/, AGENTS.md, '
+       'git add -A/.; обход — только маркер owner-go после явного «да» владельца '
+       '(не изобретать сам; маркер тривиален текстом — перехват случайного, не '
+       'граница безопасности). PreToolUse Edit/Write: DENY ~/.kimi-code-архив, '
+       'kimi-sync, .agents/agents/**, ops/hooks/**; ASK на файлы префикса. '
+       'PostToolUse (py_compile/bash -n) — в Kimi observe-only: notice в stdout, '
+       'не блок. Ревью-гейт 18.10: пара security-reviewer+code-reviewer '
+       '(model=primary) до коммита на бою, финал — arbiter. Ростер ролей: '
+       '.agents/roster.md, карточки .agents/agents/.')
 
 def main():
     try:

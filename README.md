@@ -19,7 +19,7 @@ ops/rput.sh ops/_probe.py               # файл -> ~/agent-tools/ на хос
 ops/rget.sh /home/molochko/agent-tools/out.json   # отчёт оттуда
 
 # состояние
-systemctl is-active sglang && curl -s http://192.168.2.127:1234/v1/models
+systemctl is-active sglang && curl -sk --ssl-no-revoke https://192.168.2.127:1234/v1/models -H "authorization: Bearer sk-local"
 
 # рестарт (пароль не нужен, есть NOPASSWD на этот юнит)
 sudo systemctl restart sglang
@@ -27,5 +27,6 @@ sudo systemctl restart sglang
 
 ## Главное в одной строке
 
-Модель `Qwen3.8-Flash-Next-NVFP4-bf16mtp` на порту 1234, имя для API
-`qwen3.8-flash-next`, контекст 786 432, скорость ~243 tok/s одним потоком.
+Модель `Qwen3.8-Flash-Next` (лист `-qadmtp`, с 19.10) на TLS-порту 1234, имя для API
+`qwen3.8-flash-next`, контекст 786 432; скорость — по current-config (fixed-w4 ~357.6,
+агентная база suite ~199). TLS с 14.10: CA `certs/qwen-home-ca.pem`.

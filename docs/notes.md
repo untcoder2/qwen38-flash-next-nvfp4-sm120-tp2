@@ -1472,6 +1472,46 @@ URL возвращён владельцем на :1234; `kill` по pid-файл
   поправка A 149→179 как доказательство; (4) не строить выводов о скорости из
   одного greedy-окна с шаблонным промптом.
 
+## 25.10: Аудит «без противоречий» — скилы/правила/доки после миграции
+
+- Метод: 4 scout-слайса по D:\llm (скилы; Kimi-копия канона+user-скиллы; связка
+  канон↔проект↔ростер↔роли↔гарды; state-доки) + рой из 8 scout по внешним проектам.
+  Наследие помпа/ZCode во внешних проектах — ноль вхождений; Kimi/user-скиллы — чисто.
+- Унифицировано: словарь вердиктов скилов `PASS|FAIL|FIX-FIRST` (code-review:33,
+  security-review:33, deep-project-review:29, _shared/review-cycle «clean»→«PASS») +
+  строки «гейт = пара ролей, не скилл»; в tools ревьюеров добавлен `Skill`
+  (ростер звал за методологией в скиллы, а граница не пускала — противоречие закрыто
+  с обеих сторон); arbiter получил 6a: FIX-FIRST→GO с условием-фиксом; у verifier
+  защищённый список += `~/.kimi-code/config.toml`; «Принуждение» ростера и баннер
+  guard_session приведены к фактическому DENY-листy guard_*.py (prompt-roots, git add -A).
+- Канон перевёрнут (решение Kimi-главный 25.10): `~/.kimi-code/AGENTS.md` = канон,
+  `~/.zcode/AGENTS.md` = зеркало; header'ы обновлены оба, реверс-синк
+  `ops/kimi_sync_back.py` retired (в шапке пометить при случае); PostToolUse —
+  оговорка observe-only в каноне; `/swarm`/`CreateWorkflow` помечены ZCode-only;
+  висячая `status-upupdates.mdc` → скилл long-task-comms; ростер-путь вписан в
+  «Запуск агентов». Проектный AGENTS.md: секция кеша на актуальных носителях,
+  `.claude/*`-наследие помечено архивом.
+- State-доки D:\llm: README:22/30 (https+CA, модель `-qadmtp`, скорость по current-config),
+  architecture:102, current-config:390, night-tests (:9 «боёц — current-config»,
+  откат-маркер эпохи, :99 https).
+- Внешние точечно (НЕ закоммичены — их стримы решают): ghostlink-win CLAUDE.md:308-310
+  (Stop-хук → [[hooks]]-носитель) и :449-450 (рой-один-раз → пара 18.10+2 раунда),
+  linux/README.md:93 (Stop-хук → гарды); linuxvpn AGENTS PRE-BUMP (роль code-reviewer);
+  kimi/opencode jsonc http→https+CA-коммент, AGENTS active.cfg += guard-DENY.
+- Реестр НЕ трогаемого (внутренний дрейф, решать в сессиях проектов): ghostlink-win
+  CLAUDE.md — клон-близнец из vpncode (android-раскладка, bump-desktop, «7 агентов»
+  против п.9 «от 10», publish-заголовок против п.7) + README:31,43 старые адреса ноды
+  (.25 против .94:2443) + windows/README `linux/desktop/`; architecture.md:24
+  ложная идентичность; vpncode CLAUDE.md:319 висячая `.agents/shared.mdc`;
+  claud\www AGENTS/CLAUDE — корень `D:\www` не существует (релок в D:\claud\www);
+  qwen — 7 внутренних разладов (adb-правило против харнесса, «0.6s» не реализован);
+  secneo_lab — dangling SECURITY_REVIEW.md блок notes:1030-1040; kimi/opencode —
+  `sec`-агент без ограничений (opencode не под гардами) + `.agent-context.md` не в
+  gitignore вопреки своему же правилу.
+- Наблюдение из security R-теста: пиннинг 18.10 через `primary` = соглашение (если
+  главная сессия не на xhigh — ревью унаследует меньше); страховка — [thinking].effort
+  = xhigh в конфиге, менять аккуратно.
+
 ## 25.10: Алиасы локальной модели схлопнуты в один профиль
 
 - По требованию оператора («оставь 1 профиль квена, не пачку»): из `[models]` убраны
