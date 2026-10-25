@@ -1472,6 +1472,28 @@ URL возвращён владельцем на :1234; `kill` по pid-файл
   поправка A 149→179 как доказательство; (4) не строить выводов о скорости из
   одного greedy-окна с шаблонным промптом.
 
+## 25.10: Уборка реестра — мёртвые ноды, мусор-файлы, ссылки (вторая волна аудита)
+
+- Удалено: 25 untracked проб-скриптов `ops/_*` помп/w4/w8-эпохи (трекаемые рельсы `_*` остались);
+  `ops/archive/kimi-sync/` (реверс-синк retired); мёртвые зеркала `~/.zcode/{skills,commands,agents,
+  agents-retired-20261025}`; `.claude/` остатки в ghostlink-win и claud\www; ghostlink-win
+  `CLAUDE.md` — слепок из vpncode, противоречил AGENTS п.1/3/5 (файл удалён целиком, AGENTS —
+  единственный носитель).
+- ghostlink-win: README поле → .94:2443 lane (п.14), `.25/.99/.193` исключены; windows/README
+  `linux/desktop/` → `D:\linuxvpn` (4 места) + bump-строка поправлена; таблица architecture —
+  своя идентичность вместо «vpncode (этот)»; дисклеймеры в review-b48 и TODO-WIN.
+- vpncode: 16 пунктов — висячие `.mdc`-ссылки, memory [[ship-state]], VM-адрес 192.168.2.157 +
+  UBUNTU_VM_HOST, scratchpad-хелперы → `scripts/vm.mjs`, linux/desktop(5) → D:\linuxvpn,
+  «No git remote» снято, Jess/UNT артефакты, рой-правило → пара 18.10, README entry-пут.
+- claud\www: `D:\www` → `D:\claud\www` (7 мест: AGENTS, CLAUDE, booth/CLAUDE).
+- linuxvpn: README — vm.mjs теперь локальный, кросс-бамп `--desktop` ОТМЕНЁН, install.sh
+  per `cp+cmp` гейт; AGENTS PRE-BUMP путь к роли.
+- qwen: mock 5555→8888 (README+default), warm start-server в cap_cnx (правилу AGENTS подчинён),
+  «повтор 0.6s»→0.3s, слушатель mDNS-оговорка, миссия PORTS, PDF-ветка в AGENTS, typos.
+- Чужие рабочие деревья не коммитил (их стримы/пуш — на их сессиях); D:\llm — этим коммитом.
+  Остаток реестра (не трогал): ghostlink review-b48 deep-дрейф, linuxvpn OTA-хвосты в харнессах,
+  sing-box пин 1.14.1vs1.14.3, subnet-вопрос; opencode `sec` без ограничений и gitignore.
+
 ## 25.10: Аудит «без противоречий» — скилы/правила/доки после миграции
 
 - Метод: 4 scout-слайса по D:\llm (скилы; Kimi-копия канона+user-скиллы; связка
