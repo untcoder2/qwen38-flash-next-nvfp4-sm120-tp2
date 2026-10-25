@@ -57,26 +57,26 @@ observe-only: синтаксис-notice приходит в stdout при exit 0
 
 | Роль | subagent_type | model | Когда |
 |---|---|---|---|
-| security-reviewer | `security-reviewer` | `local/qwen3.8-flash-next-xhigh` (pinned) | Обязательный гейт 1/2: перед коммитом/деплоем на бою |
-| code-reviewer | `code-reviewer` | `local/qwen3.8-flash-next-xhigh` (pinned) | Обязательный гейт 2/2: перед коммитом/деплоем на бою |
-| scout | `scout` | `local/qwen3.8-flash-next-fast` | Быстрая читательная разведка: код, журналы, логи |
+| security-reviewer | `security-reviewer` | `primary` (xhigh от вызывающего, pinned) | Обязательный гейт 1/2: перед коммитом/деплоем на бою |
+| code-reviewer | `code-reviewer` | `primary` (xhigh от вызывающего, pinned) | Обязательный гейт 2/2: перед коммитом/деплоем на бою |
+| scout | `scout` | дефолт (medium) | Быстрая читательная разведка: код, журналы, логи |
 | ops-coder | `ops-coder` | дефолт (не передавать) | Хостовые операции на molochko, правки + исполнение |
 | bench-runner | `bench-runner` | дефолт (не передавать) | Прогоны замеров скорости/нагрузки на GPU-хосте |
-| arbiter | `arbiter` | `local/qwen3.8-flash-next-xhigh` | Финальный GO/NO-GO по вердиктам и доказательствам |
-| planner | `planner` | `local/qwen3.8-flash-next-xhigh` | Пошаговый план реализации, архитектура изменения |
-| verifier | `verifier` | `local/qwen3.8-flash-next-xhigh` | Прогон тестов/сборок/линтеров и трактовка вывода |
+| arbiter | `arbiter` | `primary` | Финальный GO/NO-GO по вердиктам и доказательствам |
+| planner | `planner` | `primary` | Пошаговый план реализации, архитектура изменения |
+| verifier | `verifier` | `primary` | Прогон тестов/сборок/линтеров и трактовка вывода |
 | scribe | `scribe` | дефолт (не передавать) | Записи журнала docs/notes.md, инциденты |
 | commit-writer | `commit-writer` | дефолт (не передавать) | Коммит точечным стейджем, сообщение в стиле репо, без push |
-| sec-implementer | `sec-implementer` | `local/qwen3.8-flash-next-xhigh` | Security-sensitive диффы: крипто, парсеры, auth |
+| sec-implementer | `sec-implementer` | `primary` | Security-sensitive диффы: крипто, парсеры, auth |
 | test-writer | `test-writer` | дефолт (не передавать) | Тесты на заданный срез без правки реализации |
-| wire-analyst | `wire-analyst` | `local/qwen3.8-flash-next-xhigh` | Разбор wire/cache-логов стека: хиты, churn, diverge |
+| wire-analyst | `wire-analyst` | `primary` | Разбор wire/cache-логов стека: хиты, churn, diverge |
 
 ---
 
 ## 1. security-reviewer
 security-reviewer
-Диспатч: `subagent_type=security-reviewer`, `model=local/qwen3.8-flash-next-xhigh`.
-Модель pinned (правило 18.10) — менять нельзя. Только чтение: находит, не чинит.
+Диспатч: `subagent_type=security-reviewer`, `model="primary"`.
+Модель pinned (правило 18.10): primary наследует модель+xhigh вызывающей сессии — менять нельзя. Только чтение: находит, не чинит.
 
 Дисциплина (вставлять в prompt дословно):
 
@@ -106,8 +106,8 @@ FAIL = есть эксплуатируемое — коммит/деплой з�
 
 ## 2. code-reviewer
 code-reviewer
-Диспатч: `subagent_type=code-reviewer`, `model=local/qwen3.8-flash-next-xhigh`.
-Модель pinned (правило 18.10) — менять нельзя. Второй обязательный гейт пары.
+Диспатч: `subagent_type=code-reviewer`, `model="primary"`.
+Модель pinned (правило 18.10): primary наследует модель+xhigh вызывающей сессии — менять нельзя. Второй обязательный гейт пары.
 
 Дисциплина (вставлять в prompt дословно):
 
@@ -137,7 +137,7 @@ code-reviewer
 
 ## 3. scout
 scout
-Диспатч: `subagent_type=scout`, `model=local/qwen3.8-flash-next-fast`.
+Диспатч: `subagent_type=scout`, модель дефолтная (medium; `model` не передавать).
 Новая роль (на полке ZCode не было). Deliverable — карта фактов с file:line.
 
 Дисциплина (вставлять в prompt дословно):
@@ -252,7 +252,7 @@ CHAIN-ДИСЦИПЛИНА (один прогон, инфер не толкат�
 
 ## 6. arbiter
 arbiter
-Диспатч: `subagent_type=arbiter`, `model=local/qwen3.8-flash-next-xhigh` (shelf-пиннинг;
+Диспатч: `subagent_type=arbiter`, `model="primary"` (xhigh от вызывающего; shelf-пиннинг;
 часть ревью-процесса вместе с парой). Вершит по вердиктам, код не ревьюит заново.
 
 Дисциплина (вставлять в prompt дословно):
@@ -294,7 +294,7 @@ arbiter
 
 ## 7. planner
 planner
-Диспатч: `subagent_type=planner`, `model=local/qwen3.8-flash-next-xhigh` (shelf-пиннинг).
+Диспатч: `subagent_type=planner`, `model="primary"` (xhigh от вызывающего; shelf-пиннинг).
 Только чтение; план — деливерабл, не действие.
 
 Дисциплина (вставлять в prompt дословно):
@@ -322,7 +322,7 @@ planner
 
 ## 8. verifier
 verifier
-Диспатч: `subagent_type=verifier`, `model=local/qwen3.8-flash-next-xhigh` (shelf-пиннинг).
+Диспатч: `subagent_type=verifier`, `model="primary"` (xhigh от вызывающего; shelf-пиннинг).
 Прогоняет и трактует вывод; код не правит — это ограничено дисциплиной блока, а не типом
 агента (explore запрещал бы сами прогоны, пишущие артефакты).
 
@@ -413,7 +413,7 @@ commit-writer
 
 ## 11. sec-implementer
 sec-implementer
-Диспатч: `subagent_type=sec-implementer`, `model=local/qwen3.8-flash-next-xhigh` (shelf-пиннинг:
+Диспатч: `subagent_type=sec-implementer`, `model="primary"` (xhigh от вызывающего; shelf-пиннинг:
 security-critical диффы; обычный код — к дефолтному кодеру).
 
 Дисциплина (вставлять в prompt дословно):
@@ -467,7 +467,7 @@ test-writer
 
 ## 13. wire-analyst
 wire-analyst
-Диспатч: `subagent_type=wire-analyst`, `model=local/qwen3.8-flash-next-xhigh` (shelf-пиннинг).
+Диспатч: `subagent_type=wire-analyst`, `model="primary"` (xhigh от вызывающего; shelf-пиннинг).
 Порт проектной карточки `.zcode/agents/wire-analyst.md`. Только чтение; сырых строк не льёт.
 
 Дисциплина (вставлять в prompt дословно):
@@ -501,7 +501,8 @@ bench-runner и wire-analyst — с проектной полки `D:\llm\.zcode
 plugin-toggle ZCode, без гардов). Физические файлы глобальной полки остаются до выноса
 ZCode-конфига — отсюда больше не читаются.
 
-Маппинг моделей: ZCode-фронт `model: new-provider/qwen3.8-flash-next` + `thoughtLevel:
-xhigh` на Kimi соответствует `model=local/qwen3.8-flash-next-xhigh`; где ростер говорит
-«дефолт» — параметр `model` не передавать. Ревью-пара — xhigh-pinned по правилу 18.10,
-scout — fast по тому же TODO.
+Маппинг моделей: в [models] один локальный профиль `local/qwen3.8-flash-next`
+(effort medium по умолчанию). ZCode thoughtLevel=xhigh на Kimi соответствует
+`model="primary"` — сабагент наследует модель и xhigh-effort вызывающей сессии
+(главная живёт на [thinking].effort=xhigh); «дефолт» — параметр `model` не передавать.
+Ревью-пара — xhigh-pinned по 18.10 через primary; scout — medium по тому же TODO.
