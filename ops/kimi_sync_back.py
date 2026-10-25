@@ -29,7 +29,7 @@ def sync_agents():
     s = s.replace(
         "в ZCode — соответствующий xhigh-профиль из конфига провайдера, если объявлен; "
         "у дефолтного профиля effort medium — для ревью его НЕ использовать",
-        "на Kimi: local/qwen3.8-flash-next-xhigh",
+        "на Kimi: model="primary" (xhigh наследуется от вызывающей сессии)",
     )
     s += "\n<!-- reverse-sync от ZCode-канона: ops/kimi_sync_back.py; не править руками -->\n"
     bak(dst)
