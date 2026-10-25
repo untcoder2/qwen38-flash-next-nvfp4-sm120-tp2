@@ -179,6 +179,14 @@ def read_head(f):
     return lines[0].decode("latin-1"), hdrs, rest
 
 
+def closeframed(rh: bytes) -> bytes:
+    """Force Connection: close — sglang's keep-alive dies in ~5-10s silently,
+    so pooled client reuse is an ECONNRESET lottery with 10s backoff."""
+    head, *rest = rh.split(b"\r\n")
+    kept = [l for l in rest if not l.lower().startswith(b"connection:")]
+    return b"\r\n".join([head] + kept + [b"Connection: close"])
+
+
 def handle(tls):
     up = None
     try:
@@ -240,7 +248,7 @@ def handle(tls):
             for ln in rh.split(b"\r\n")[1:]:
                 k, _, v = ln.partition(b":")
                 rhl[k.decode("latin-1").lower().strip()] = v.decode("latin-1").strip()
-            tls.sendall(rh + b"\r\n\r\n" + rrest)
+            tls.sendall(closeframed(rh) + b"\r\n\r\n" + rrest)
             if " 400 " in rl or " 422 " in rl or " 500 " in rl:
                 peek = rrest
                 if "content-length" in rhl and len(peek) < int(rhl["content-length"]):
@@ -273,9 +281,7 @@ def handle(tls):
                     if not c:
                         break
                     tls.sendall(c); need -= len(c)
-                if hdrs.get("connection", "").lower() == "close":
-                    return
-                continue
+                return  # Connection: close sent above — one connection per turn
             return  #unknown framing — закрываем, клиент переключится
     except (OSError, ssl.SSLError, ValueError) as e:
         log("conn err:", type(e).__name__, str(e)[:120])
