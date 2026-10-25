@@ -48,16 +48,13 @@ export FLASHINFER_GDN_FP16_ACCUM_MMA="${FLASHINFER_GDN_FP16_ACCUM_MMA:-1}"
 GDN_FP16_ACCUM_MMA=off
 if [[ "$FLASHINFER_GDN_FP16_ACCUM_MMA" == 1 ]]; then GDN_FP16_ACCUM_MMA=on; fi
 # Политика ширины MTP v3.1: FIXED W4 (steps 3) на всех тирах — ops-файл
-# tp2-adaptive-w4.json (sha ce468a5c…) примонтирован поверх сток-адаптивной:
-# один кандидат на тир ⇒ никакой EMA/холдов/переключений; launch обязан быть
-# steps 3 / draft 4 (v3.1 проверяет num-steps ∈ union кандидатов).
+# (25.10 00:4x) оверрай tp2-adaptive-w4.json снят и sha-гейт удалён: прод на
+# сток-адаптивной ширине 3.1.1 (A/B вечера: на chunk16K сток бьёт fixed-W4 на
+# длинных -3.4% и на коротких -5.7%; launch fields 7/8, union кандидатов шире 3).
 # launch steps 3 / draft 4 (v3.1 проверяет num-steps ∈ union кандидатов).
 # (сток 3.1.1: C1=W8/C≥2=W4, фикс. ширина по конкурентности)
 ADAPTIVE_CONFIG="$SCRIPT_DIR/adaptive-next.json"
 [[ -f "$ADAPTIVE_CONFIG" ]] || { echo "Adaptive MTP policy missing: $ADAPTIVE_CONFIG" >&2; exit 1; }
-read -r ADAPTIVE_SHA _ < <(sha256sum "$ADAPTIVE_CONFIG")
-[[ "$ADAPTIVE_SHA" == ce468a5c95bbfe0ab90715f78ff49b000f74a27bc9734ed2014794e2c88f9624 ]] || {
-  echo "adaptive-next.json sha256 drift: $ADAPTIVE_SHA" >&2; exit 1; }
 CONTEXT_LENGTH=786432
 PAGE_SIZE=64
 TP_SIZE=2
@@ -140,11 +137,10 @@ NIXL_STORAGE="$("$NAMESPACE_HELPER" \
   --field "compute_dtype=$COMPUTE_DTYPE" \
   --field "target_kv_dtype=$KV_DTYPE" \
   --field "speculative_algorithm=NEXTN" \
-  --field "speculative_num_steps=3" \
+  --field "speculative_num_steps=7" \
   --field "speculative_eagle_topk=1" \
-  --field "speculative_num_draft_tokens=4" \
+  --field "speculative_num_draft_tokens=8" \
   --field "speculative_adaptive=true" \
-  --field "speculative_adaptive_policy_sha256=$ADAPTIVE_SHA" \
   --field "speculative_draft_quantization=unquant" \
   --field "gdn_fp16_accum_mma=$GDN_FP16_ACCUM_MMA" \
   --field "gdn_mtp_cache_mode=none" \
@@ -175,7 +171,7 @@ launch_args=(serve \
   --host 0.0.0.0 --port 8001 --tp "$TP_SIZE" \
   --disable-custom-all-reduce \
   --dtype "$COMPUTE_DTYPE" --quantization modelopt_fp4 --kv-cache-dtype "$KV_DTYPE" \
-  --mem-fraction-static 0.93 \
+  --mem-fraction-static 0.91 \
   "${TOKEN_CAP_ARGS[@]}" \
   --context-length "$CONTEXT_LENGTH" --json-model-override-args "$TARGET_OVERRIDES" \
   --page-size "$PAGE_SIZE" --max-running-requests 16 --sleep-on-idle \
