@@ -1,7 +1,8 @@
 # PreToolUse hook (Edit/Write/ApplyPatch): две функции.
-# 1) DENY (exit 2): ~/.kimi-code/** — замороженный архив (решение 24.10: ZCode
-#    канон), и sync-скрипты из ops/archive/kimi-sync (запуск/правка воскресили
-#    бы устаревший канон поверх живого).
+# 1) DENY (exit 2): защищённые корни — ~/.kimi-code/** и kimi-sync (замороженный
+#    архив, решение 24.10), агент-файлы .agents/agents/** и реализация гардов
+#    ops/hooks/** (с 25.10 волна 3: агент-файлы = system prompt, их молча
+#    перетирать нельзя).
 # 2) ASK (JSON permissionDecision=ask): правки файлов, которые сбрасывают
 #    префиксный кеш живых сессий (AGENTS.md, ~/.zcode/skills|commands|agents,
 #    settings.json) — пусть человек подтвердит, как того правило о кеше.
@@ -14,7 +15,9 @@ import sys
 def err(msg):
     sys.stderr.buffer.write(msg.encode('utf-8', 'replace'))
 
-ARCHIVE = re.compile(r'[\\/]\.kimi[\\-]code[\\/]|kimi[\\-]code[\\/]|kimi-sync[\\/]', re.I)
+ARCHIVE = re.compile(
+    r'[\\/]\.kimi[\\-]code[\\/]|kimi[\\-]code[\\/]|kimi-sync[\\/]'
+    r'|[\\/]\.agents[\\/]agents[\\/]|ops[\\/]hooks[\\/]', re.I)
 PREFIX = re.compile(
     r'(AGENTS\.md$|CLAUDE\.md$|settings\.json$|[\\/]\.zcode[\\/](skills|commands|agents)[\\/])', re.I)
 
@@ -30,9 +33,10 @@ def main():
     except Exception:
         return 0
     if ARCHIVE.search(fp):
-        err('guard_write: БЛОК — writes в ~/.kimi-code/** и kimi-sync запрещены '
-            '(канон правил/скиллов — ~/.zcode, заморозка 24.10; доставка правок '
-            'конфига — через shell, вне этого тула).\n')
+        err('guard_write: БЛОК — защищённые корни (~/.kimi-code, kimi-sync, '
+            '.agents/agents, ops/hooks): это промпты и гарды, правка только по '
+            'явному «да» владельца; штатная доставка — python/shell с маркером '
+            'owner-go в команде.\n')
         return 2
     if PREFIX.search(fp):
         reason = ('правка файла префикса (AGENTS/skills/settings) = '

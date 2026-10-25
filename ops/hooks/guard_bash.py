@@ -19,6 +19,16 @@ DENY = [
      'снос контейнера penny = остановка инфера вместе с живыми сессиями; только владелец'),
     (r'ops/rsh\.sh.*\bsudo\b', 'sudo на хосте — вне NOPASSWD-списка это пароль владельца; '
      'читательные sudo -n -l / status / is-active пропускаются'),
+    # промпт-корни (агент-файлы = system prompt, гарды, правила): shell-запись
+    # только с owner-go после явного «да» владельца (25.10, волна 3 HIGH-1/L5).
+    (r'>+\s*"?[^\n|;]*(\.agents[/\\]|ops[/\\]hooks[/\\]|AGENTS\.md)',
+     'перенаправление в промпт-корень (.agents/, ops/hooks/, AGENTS.md) — остановочное «да»'),
+    (r'\btee\b[^\n|;]*(\.agents[/\\]|ops[/\\]hooks[/\\]|AGENTS\.md)',
+     'tee в промпт-корень — остановочное «да»'),
+    (r'\bsed\s+-[a-zA-Z]*i[^\n|;]*(\.agents[/\\]|ops[/\\]hooks[/\\]|AGENTS\.md)',
+     'sed -i по промпт-корню — остановочное «да»'),
+    (r'\bgit\s+add\s+(-A|--all|\.)\s|\bgit\s+add\s+\.$',
+     'git add -A/. запрещён: в дереве чужой WIP, стейдж точечным списком'),
 ]
 SUDO_OK = re.compile(r'sudo\s+-n\s+(-l|--list)\b|systemctl\s+status|is-active|journalctl', re.I)
 # Мутационные глаголы: команда с ними НЕ считается читательской, даже если

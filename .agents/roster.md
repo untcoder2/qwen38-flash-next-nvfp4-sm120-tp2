@@ -6,6 +6,12 @@
 `~/.zcode/AGENTS.md` это секция «Ревью кода (обязательный гейт)»; номер живой, но
 в самом файле не подписан).
 
+25.10 (вечер): карточки материализованы в нативные агент-файлы; канон промпта теперь файл, fence ниже — зеркало
+`.agents/agents/<name>.md` (frontmatter `tools` = исполняемая граница, тело = system
+prompt; обнаруживаются автоматически, зовутся по `subagent_type=<name>`). Ростер
+остаётся шпаргалкой «роль → тип → модель»: frontmatter Kimi поле `model` не читает,
+выбор модели — обязанность диспатчера.
+
 Полный состав полок перенесён по прямому указанию оператора (25.10): роли из TODO п.1 —
 секции 1-5; остаток глобальной полки ZCode (arbiter, planner, verifier, scribe,
 commit-writer, sec-implementer, test-writer) — секции 6-12; проектная полка
@@ -20,12 +26,12 @@ xhigh сохранён за судейскими, ревьюерными и secu
 
 Вызов инструмента `Agent` с параметрами:
 
-- `subagent_type` — тип агента (см. таблицу-шпаргалку),
+- `subagent_type` — имя роли из таблицы (роль из .agents/agents; built-in coder/explore/plan — для разовых задач вне ростера),
 - `model` — модель из таблицы; где сказано «дефолт» — параметр `model` НЕ передавать,
-- `prompt` — задание + дословно блок **Дисциплина** карточки (между маркерами ```);
-  для ролей-исполнителей (coder: §4, §5, §9-12) дополнительно дописывается блок
-  «Принуждение» этой шапки и строка авторства маркера `owner-go` — они вне fence, а
-  исполнитель без них видит «маркер нужен», но не видит «кто его ставит».
+- `prompt` — только задание: с 25.10 дисциплина живёт в теле агент-файла
+  (канон — `.agents/agents/<name>.md`, fence в ростере зеркало для чтения) и в
+  system prompt сабагента попадает сама. При ручном диспатче built-in типом по
+  старой привычке пастить fence + блок «Принуждение» этой шапки дословно.
 
 Дисциплина — закон карточки, она не расширяется и не сужается заданием; если задание
 конфликтует с дисциплиной (например, просит рестарт без `owner-go`) — сабагент
@@ -51,25 +57,25 @@ observe-only: синтаксис-notice приходит в stdout при exit 0
 
 | Роль | subagent_type | model | Когда |
 |---|---|---|---|
-| security-reviewer | `explore` | `local/qwen3.8-flash-next-xhigh` (pinned) | Обязательный гейт 1/2: перед коммитом/деплоем на бою |
-| code-reviewer | `explore` | `local/qwen3.8-flash-next-xhigh` (pinned) | Обязательный гейт 2/2: перед коммитом/деплоем на бою |
-| scout | `explore` | `local/qwen3.8-flash-next-fast` | Быстрая читательная разведка: код, журналы, логи |
-| ops-coder | `coder` | дефолт (не передавать) | Хостовые операции на molochko, правки + исполнение |
-| bench-runner | `coder` | дефолт (не передавать) | Прогоны замеров скорости/нагрузки на GPU-хосте |
-| arbiter | `explore` | `local/qwen3.8-flash-next-xhigh` | Финальный GO/NO-GO по вердиктам и доказательствам |
-| planner | `plan` | `local/qwen3.8-flash-next-xhigh` | Пошаговый план реализации, архитектура изменения |
-| verifier | `coder` | `local/qwen3.8-flash-next-xhigh` | Прогон тестов/сборок/линтеров и трактовка вывода |
-| scribe | `coder` | дефолт (не передавать) | Записи журнала docs/notes.md, инциденты |
-| commit-writer | `coder` | дефолт (не передавать) | Коммит точечным стейджем, сообщение в стиле репо, без push |
-| sec-implementer | `coder` | `local/qwen3.8-flash-next-xhigh` | Security-sensitive диффы: крипто, парсеры, auth |
-| test-writer | `coder` | дефолт (не передавать) | Тесты на заданный срез без правки реализации |
-| wire-analyst | `explore` | `local/qwen3.8-flash-next-xhigh` | Разбор wire/cache-логов стека: хиты, churn, diverge |
+| security-reviewer | `security-reviewer` | `local/qwen3.8-flash-next-xhigh` (pinned) | Обязательный гейт 1/2: перед коммитом/деплоем на бою |
+| code-reviewer | `code-reviewer` | `local/qwen3.8-flash-next-xhigh` (pinned) | Обязательный гейт 2/2: перед коммитом/деплоем на бою |
+| scout | `scout` | `local/qwen3.8-flash-next-fast` | Быстрая читательная разведка: код, журналы, логи |
+| ops-coder | `ops-coder` | дефолт (не передавать) | Хостовые операции на molochko, правки + исполнение |
+| bench-runner | `bench-runner` | дефолт (не передавать) | Прогоны замеров скорости/нагрузки на GPU-хосте |
+| arbiter | `arbiter` | `local/qwen3.8-flash-next-xhigh` | Финальный GO/NO-GO по вердиктам и доказательствам |
+| planner | `planner` | `local/qwen3.8-flash-next-xhigh` | Пошаговый план реализации, архитектура изменения |
+| verifier | `verifier` | `local/qwen3.8-flash-next-xhigh` | Прогон тестов/сборок/линтеров и трактовка вывода |
+| scribe | `scribe` | дефолт (не передавать) | Записи журнала docs/notes.md, инциденты |
+| commit-writer | `commit-writer` | дефолт (не передавать) | Коммит точечным стейджем, сообщение в стиле репо, без push |
+| sec-implementer | `sec-implementer` | `local/qwen3.8-flash-next-xhigh` | Security-sensitive диффы: крипто, парсеры, auth |
+| test-writer | `test-writer` | дефолт (не передавать) | Тесты на заданный срез без правки реализации |
+| wire-analyst | `wire-analyst` | `local/qwen3.8-flash-next-xhigh` | Разбор wire/cache-логов стека: хиты, churn, diverge |
 
 ---
 
 ## 1. security-reviewer
-
-Диспатч: `subagent_type=explore`, `model=local/qwen3.8-flash-next-xhigh`.
+security-reviewer
+Диспатч: `subagent_type=security-reviewer`, `model=local/qwen3.8-flash-next-xhigh`.
 Модель pinned (правило 18.10) — менять нельзя. Только чтение: находит, не чинит.
 
 Дисциплина (вставлять в prompt дословно):
@@ -99,8 +105,8 @@ FAIL = есть эксплуатируемое — коммит/деплой з�
 ```
 
 ## 2. code-reviewer
-
-Диспатч: `subagent_type=explore`, `model=local/qwen3.8-flash-next-xhigh`.
+code-reviewer
+Диспатч: `subagent_type=code-reviewer`, `model=local/qwen3.8-flash-next-xhigh`.
 Модель pinned (правило 18.10) — менять нельзя. Второй обязательный гейт пары.
 
 Дисциплина (вставлять в prompt дословно):
@@ -130,8 +136,8 @@ FAIL = есть эксплуатируемое — коммит/деплой з�
 ```
 
 ## 3. scout
-
-Диспатч: `subagent_type=explore`, `model=local/qwen3.8-flash-next-fast`.
+scout
+Диспатч: `subagent_type=scout`, `model=local/qwen3.8-flash-next-fast`.
 Новая роль (на полке ZCode не было). Deliverable — карта фактов с file:line.
 
 Дисциплина (вставлять в prompt дословно):
@@ -158,8 +164,8 @@ FAIL = есть эксплуатируемое — коммит/деплой з�
 ```
 
 ## 4. ops-coder
-
-Диспатч: `subagent_type=coder`, модель дефолтная (параметр `model` не передавать).
+ops-coder
+Диспатч: `subagent_type=ops-coder`, модель дефолтная (параметр `model` не передавать).
 Порт карточки `ops-runner` с полки ZCode, роль переименована в ops-coder.
 
 Дисциплина (вставлять в prompt дословно):
@@ -194,8 +200,8 @@ FAIL = есть эксплуатируемое — коммит/деплой з�
 ```
 
 ## 5. bench-runner
-
-Диспатч: `subagent_type=coder`, модель дефолтная (параметр `model` не передавать).
+bench-runner
+Диспатч: `subagent_type=bench-runner`, модель дефолтная (параметр `model` не передавать).
 Порт проектной карточки `.zcode/agents/bench-runner.md` (полка D:\llm, 24.10, урок «бенч
 вживую на своём же ходе»); тишина/chain-дисциплина добраны по TODO 25.10.
 
@@ -245,8 +251,8 @@ CHAIN-ДИСЦИПЛИНА (один прогон, инфер не толкат�
 ---
 
 ## 6. arbiter
-
-Диспатч: `subagent_type=explore`, `model=local/qwen3.8-flash-next-xhigh` (shelf-пиннинг;
+arbiter
+Диспатч: `subagent_type=arbiter`, `model=local/qwen3.8-flash-next-xhigh` (shelf-пиннинг;
 часть ревью-процесса вместе с парой). Вершит по вердиктам, код не ревьюит заново.
 
 Дисциплина (вставлять в prompt дословно):
@@ -287,8 +293,8 @@ CHAIN-ДИСЦИПЛИНА (один прогон, инфер не толкат�
 ```
 
 ## 7. planner
-
-Диспатч: `subagent_type=plan`, `model=local/qwen3.8-flash-next-xhigh` (shelf-пиннинг).
+planner
+Диспатч: `subagent_type=planner`, `model=local/qwen3.8-flash-next-xhigh` (shelf-пиннинг).
 Только чтение; план — деливерабл, не действие.
 
 Дисциплина (вставлять в prompt дословно):
@@ -315,8 +321,8 @@ CHAIN-ДИСЦИПЛИНА (один прогон, инфер не толкат�
 ```
 
 ## 8. verifier
-
-Диспатч: `subagent_type=coder`, `model=local/qwen3.8-flash-next-xhigh` (shelf-пиннинг).
+verifier
+Диспатч: `subagent_type=verifier`, `model=local/qwen3.8-flash-next-xhigh` (shelf-пиннинг).
 Прогоняет и трактует вывод; код не правит — это ограничено дисциплиной блока, а не типом
 агента (explore запрещал бы сами прогоны, пишущие артефакты).
 
@@ -345,8 +351,8 @@ CHAIN-ДИСЦИПЛИНА (один прогон, инфер не толкат�
 ```
 
 ## 9. scribe
-
-Диспатч: `subagent_type=coder`, модель дефолтная (глобальное «обычные кодер-агенты —
+scribe
+Диспатч: `subagent_type=scribe`, модель дефолтная (глобальное «обычные кодер-агенты —
 дефолтная модель»; на полке был xhigh, понижено по правилу ролей-писателей).
 
 Дисциплина (вставлять в prompt дословно):
@@ -372,8 +378,8 @@ CHAIN-ДИСЦИПЛИНА (один прогон, инфер не толкат�
 ```
 
 ## 10. commit-writer
-
-Диспатч: `subagent_type=coder`, модель дефолтная. Коммит по диффу без push.
+commit-writer
+Диспатч: `subagent_type=commit-writer`, модель дефолтная. Коммит по диффу без push.
 
 Дисциплина (вставлять в prompt дословно):
 
@@ -406,8 +412,8 @@ CHAIN-ДИСЦИПЛИНА (один прогон, инфер не толкат�
 ```
 
 ## 11. sec-implementer
-
-Диспатч: `subagent_type=coder`, `model=local/qwen3.8-flash-next-xhigh` (shelf-пиннинг:
+sec-implementer
+Диспатч: `subagent_type=sec-implementer`, `model=local/qwen3.8-flash-next-xhigh` (shelf-пиннинг:
 security-critical диффы; обычный код — к дефолтному кодеру).
 
 Дисциплина (вставлять в prompt дословно):
@@ -435,8 +441,8 @@ owner-go (маркер вставляет только оператор в за�
 ```
 
 ## 12. test-writer
-
-Диспатч: `subagent_type=coder`, модель дефолтная. Тесты на срез, реализацию не трогает.
+test-writer
+Диспатч: `subagent_type=test-writer`, модель дефолтная. Тесты на срез, реализацию не трогает.
 
 Дисциплина (вставлять в prompt дословно):
 
@@ -460,8 +466,8 @@ owner-go (маркер вставляет только оператор в за�
 ```
 
 ## 13. wire-analyst
-
-Диспатч: `subagent_type=explore`, `model=local/qwen3.8-flash-next-xhigh` (shelf-пиннинг).
+wire-analyst
+Диспатч: `subagent_type=wire-analyst`, `model=local/qwen3.8-flash-next-xhigh` (shelf-пиннинг).
 Порт проектной карточки `.zcode/agents/wire-analyst.md`. Только чтение; сырых строк не льёт.
 
 Дисциплина (вставлять в prompt дословно):
