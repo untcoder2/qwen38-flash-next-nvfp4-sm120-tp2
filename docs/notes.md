@@ -1472,7 +1472,47 @@ URL возвращён владельцем на :1234; `kill` по pid-файл
   поправка A 149→179 как доказательство; (4) не строить выводов о скорости из
   одного greedy-окна с шаблонным промптом.
 
-## 25.10: TODO (пережить /new)
+## 25.10: TODO выполнен — ростер 13/13, наследие ZCode снесено
+
+- **Ростер (п.1):** `.agents/roster.md`, 13 карточек = 5 ролей из TODO (ревью-пара
+  `explore` + `local/qwen3.8-flash-next-xhigh` pinned по 18.10, scout — fast,
+  ops-coder/bench-runner — coder+дефолт) + 7 с глобальной полки ZCode (§6-12) +
+  первоисточники с проектной полки (§5 bench-runner: cache_window 15, выдержка ≥200 с,
+  queue-req=0+idle; §13 wire-analyst). Рои ходят по карточкам. Полка `D:\llm\.zcode\`
+  удалена как наследие; с нею снят plugin-toggle `android-emulator` — если эмулятор
+  вернут, настраивать заново.
+- **Снос на хосте (п.2):** контейнер `zcode-pump` (restart=unless-stopped — только
+  rm -f), penny отцеплён от сети **`pumpnet`** (в TODO старое имя penny-pump), сеть
+  удалена; cron-гард вырезан (6→5 строк, бэкап `/tmp/crontab.pre-teardown-20261025`,
+  0600); сняты `~/agent-tools/{openai_reorder_pump.py,tls_chain_pump.py,tls_chain_pump.pid,
+  pumpnet-guard.sh}` + лог. Рельс-зеркало `ops/_teardown_zcode_20261025.sh`: префлайт
+  docker/ss/pgrep, kill TLS-фронта по /proc-верифицированному pid, анкоренная срезка
+  крона с rollback, re-run идемпотентен. Пост-стейт: :8744/:8443 пусты, penny running,
+  :1234 отвечает (bridge-публикацию detach не тронул).
+- **Снос локальный:** git rm `docs/zcode-bridge.md` (чужие pumpnet-переименования внутри
+  умирают вместе с доком — док цельносносный), `ops/openai_reorder_pump.py`,
+  `ops/tls_chain_pump.py`, `ops/pumpnet-guard.sh` (зеркало гарда, санкционировано его
+  шапкой), `certs/zcode-trust-bundle.pem`; из `~/.zcode/cli/config.json` — ключ `network`
+  (hooks/mcp/plugins целы); бэкав `config.json.bak-ca-20261024` удалён.
+- **ПОПРАВКА к п.2:** env `NODE_EXTRA_CA_CERTS` НЕ удалён, а переткнут на
+  `certs/qwen-home-ca.pem`. Инфер :1234 — https, issuer=CN=QwenHome-CA; гейт-замер
+  (node v24.19): только home CA → HTTP 200, без env → SELF_SIGNED_CERT_IN_CHAIN.
+  Удаление откусило бы TLS всем Node-клиентам, включая Kimi; рецепт совпадает с
+  `current-config.md:326`. `server.pem` не тронут (по TODO). FOLLOW-UP: хостовая копия
+  `~/agent-tools/qwen-home-ca.pem` — ДРУГОЙ CA (fpr 53:F8… против 67:B5… у репозиторной)
+  и на неё ссылается `dashboard/collect_server.py`; leaf `qwen-infer` без SAN — при
+  следующей ротации добавить `SAN IP:192.168.2.127`.
+- **Ревью-пара (18.10), волна 1:** r1 security FIX-FIRST(7), code FIX-FIRST(5); r2 —
+  12/12 закрыты, по коду фиксов 9 добивок (запрет самоставления `owner-go` в §4/§5/§11,
+  ограничение «локальной свободы» верификатора, /proc-валидация pid перед kill,
+  анкоренные crontab-счётчики, pgrep в префлайте, `|| bad` на rollback) — все внесены
+  в эту же правку. Принуждение в Kimi-сессиях текстовое: PreToolUse-гарды висят на
+  `hooks` ZCode-конфига (жив, не трогать); миграция гардов в Kimi — отдельное
+  остановочное «да».
+- **Намеренное последствие:** ZCode CLI без LLM-пути (:8744 больше нет) — это и есть
+  «полное удаление наследия».
+
+## 25.10: TODO (пережить /new) — ВЫПОЛНЕН 25.10, см. запись выше
 
 1. **Ростер ролей сабагентов** — `.agents/roster.md`: security-reviewer / code-reviewer /
    scout / ops-coder / bench-runner; карточки взять с полки сабагентов ZCode (её хвалили),
