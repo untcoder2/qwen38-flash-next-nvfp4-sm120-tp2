@@ -61,7 +61,7 @@ systemd sglang.service
 | правка | зачем |
 |---|---|
 | `TP_SIZE=1` → `2` | обе карты |
-| `--ple-offload-embedding` → `--no-ple-offload-embedding` | таблица PLE (47.7 ГиБ) в VRAM, как у нас всегда было; освобождает хостовую RAM. **С 14.10 обратно: `--ple-offload-embedding` (pinned RAM) — KV-пул вырос до 6.42M токенов, см. notes 14.10** |
+| `--ple-offload-embedding` → `--no-ple-offload-embedding` | таблица PLE (47.7 ГиБ) в VRAM, как у нас всегда было; освобождает хостовую RAM. **С 14.10 обратно: `--ple-offload-embedding` (pinned RAM), KV-пул 6.42M (notes 14.10). С 26.10 снова в VRAM: override в самом serve-файле после `source ple-backend.sh` — хостовый `tp2-ple-backend.sh` в v3.1.1 НЕ монтируется, правка его не доезжает (notes 26.10)** |
 | `--mem-fraction-static 0.981` → `0.88` | 0.981 — одноплатное значение; 0.88 наше проверенное |
 | добавлен `--disable-custom-all-reduce` | **без него TP=2 падает**: `RuntimeError: invalid argument` в `get_graph_buffer_ipc_meta` |
 | убран `--hicache-storage-backend nixl` и его конфиг | NIXL не инициализируется, `Failed to create NIXL backend` |
@@ -148,6 +148,19 @@ systemd sglang.service
 > `.bak-301sha-20261019-0342` (sha 64070286…), `active.cfg=serve-penny-qadmtp301.sh`.
 > 3.0.2-лист `serve-penny-qadmtp.sh` цел. PR jpezzulli#79 (QSA HiCache fence,
 > qwen3_coder combinators, API-hardening) — при склейке апгрейдиться сразу.
+>
+> **Сверено живьём 26.10.2026**: лист `serve-penny-311w4.sh`, образ **v3.1.1**, **PLE
+> снова в VRAM**: override `PLE_ARGS=(--no-ple-offload-embedding)` +
+> `PLE_OFFLOAD_EMBEDDING=false` в `tp2-serve-flash-next.sh` сразу после
+> `source ple-backend.sh` (ram-guard; хостовый `tp2-ple-backend.sh` не монтируется —
+> на нём правки не доезжают, корень провала 03:2x, notes 26.10). `--mem-fraction-static
+> 0.92` (вместо эпохных 0.95), `--chunked-prefill-size 8192` (вместо 16384),
+> `--hicache-size 24`. Деплой листом `ple_vram_return.sh` (rev.2, ревью 2/2 GO): DONE
+> 240 с, health 220 с, ассерты 4/4; пул **2 612 608**, VRAM 93.3/97.9 GiB/карту, RAM
+> avail 23 GiB, retract 0. Стенд PASS: short_bench **409.9**, рефилл 3.6→0.2 с, 169K
+> warm 0.37 с (100% кеш), 4 агента 235 tok/s, TTFT p95 +10% (0.095) — наблюдать.
+> Пре-edit профиль: `tp2-serve-flash-next.sh.bak-plevram-20261026-040737` (он же цель
+> отката). Зеркала/лист в git с `64ca0fd`.
 
 ```
 --tp 2 --disable-custom-all-reduce --dtype bfloat16 --quantization modelopt_fp4
