@@ -119,6 +119,24 @@ owner call, re-measured end to end.
 - Oversight: 0 retracts and 0 kernel oom-kills through boot, 30×10 s post-DONE
   soak, and the full bench; steady host `MemAvailable` 12 GiB at hc30, swap 0.
 
+### Image bump 3.1.1 → 3.1.2 (26 Oct 15:24, behavior 1:1 on our profile)
+
+3.1.2 replaces the hard-coded width-policy sha gate with one `PENNY_MTP_POLICY`
+selector (`tiered` default — same C1=W8 / C≥2=W4 routing; `adaptive` — the v3.0.2
+policy byte-for-byte; `fixed-w4` — W4 at every concurrency), moves the selected
+policy file's hash into the NIXL cache identity, fixes DFlash2 checkpoint
+tracking, and labels DFlash2 experimental/alpha. For the native NEXTN profile
+every helper the launcher sources is byte-identical except an additive
+startup-summary line — so the upgrade shipped as a leaf image-pin swap
+(`serve-penny-312.sh`, digest `013a685d…`) behind health-before / snapshot-tag /
+config-rollback gates and a 30×10 s post-assert soak. Post-upgrade parity,
+measured: list-style bench **415.4** (was 414.6), battery **20/20**, degen probe
+**1/8** (= base), 169K cold prefill 12.49 s, pool 2,746,496 unchanged, width
+switching alive (5×3→7, 5×7→3), retract / OOM / oom-kill / NRestarts all zero.
+Operator note: if your custom launcher pins the bundled policy sha, 3.1.2
+removes that gate upstream — revisit your recipe on the swap (ours keeps its own
+gate and still passes: the policy file is unchanged).
+
 ## Mistakes we made, so you do not repeat them
 
 **Wall-clock over HTTP is not throughput.** `curl` timing of a 1000-token
