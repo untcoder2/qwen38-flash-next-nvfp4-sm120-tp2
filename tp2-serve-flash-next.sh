@@ -5,8 +5,8 @@ set -euo pipefail
 # под v3.1.1: (1) sha-гейт политики — фиксированная ширина по конкурентности 3edaa87d…;
 # (2) TILELANG_CACHE_DIR (#65); (3) identity-probe эффективной FP8-точности вместо raw-env
 # (NIXL-поле online_mxfp8 = rowwise_fp8/вычисленное). Все наши кастомизации сохранены:
-# context 786432/yaarn×3, TP=2, track 256, max-running 16, mamba cache 128, hicache 24,
-# mem-fraction 0.92, chunk 8192, disable-custom-all-reduce, served-model-name qwen3.8-flash-next, TLS.
+# context 786432/yaarn×3, TP=2, track 256, max-running 16, mamba cache 128, hicache 30,
+# mem-fraction 0.93, chunk 8192, disable-custom-all-reduce, served-model-name qwen3.8-flash-next, TLS.
 # PLE-override: в этом файле сразу после source ple-backend.sh (ple-backend.sh не монтируется, стоковый default=ram).
 # NIXL disk tier осознанно НЕ подключён ( unlike сток 3.1.1 ): флаги --hicache-storage-backend
 # nixl сняты ещё на v3.0.1 из-за «Failed to create NIXL backend» на TP=2 и /nixl на ext4
@@ -178,7 +178,7 @@ launch_args=(serve \
   --host 0.0.0.0 --port 8001 --tp "$TP_SIZE" \
   --disable-custom-all-reduce \
   --dtype "$COMPUTE_DTYPE" --quantization modelopt_fp4 --kv-cache-dtype "$KV_DTYPE" \
-  --mem-fraction-static 0.92 \
+  --mem-fraction-static 0.93 \
   "${TOKEN_CAP_ARGS[@]}" \
   --context-length "$CONTEXT_LENGTH" --json-model-override-args "$TARGET_OVERRIDES" \
   --page-size "$PAGE_SIZE" --max-running-requests 16 --sleep-on-idle \
@@ -187,7 +187,7 @@ launch_args=(serve \
   --max-mamba-cache-size 128 --gdn-mtp-cache-mode none \
   --linear-attn-decode-backend flashinfer --linear-attn-prefill-backend flashinfer \
   --mamba-track-interval "$MAMBA_TRACK_INTERVAL" \
-  --enable-hierarchical-cache --hicache-size 24 --hicache-host-memory-mode cache \
+  --enable-hierarchical-cache --hicache-size 30 --hicache-host-memory-mode cache \
   --hicache-write-policy write_through --hicache-io-backend kernel \
   --hicache-mem-layout page_first \
   "${PLE_ARGS[@]}" --trust-remote-code \
