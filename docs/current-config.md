@@ -163,7 +163,8 @@ systemd sglang.service
 > отката). Зеркала/лист в git с `64ca0fd`.
 >
 > **26.10 12:30 волна 2**: по решению владельца **mf 0.93, hicache 30** (PLE VRAM,
-> chunk 8192 без изменений). Лист rev.4 (env-параметризация + soak 30×10 с пост-DONE +
+> chunk 8192 без изменений). Лист rev.4 (env-параметризация + soak 30×10 с после
+> ассертов, до DONE +
 > stash .failed + VRAM-гейт PRE), ревью 2/2 GO, коммит `9f69f4d`. DONE+SOAK_OK,
 > пул **2 746 496**, GPU avail 5.56 GiB/карта, host MA **12 GiB** steady (hc30 ≈
 > 2×30 GiB пулы, swap 0). Стенд PASS: short_bench **414.6**, 169K cold 12.39 с,
