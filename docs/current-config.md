@@ -161,6 +161,15 @@ systemd sglang.service
 > warm 0.37 с (100% кеш), 4 агента 235 tok/s, TTFT p95 +10% (0.095) — наблюдать.
 > Пре-edit профиль: `tp2-serve-flash-next.sh.bak-plevram-20261026-040737` (он же цель
 > отката). Зеркала/лист в git с `64ca0fd`.
+>
+> **26.10 12:30 волна 2**: по решению владельца **mf 0.93, hicache 30** (PLE VRAM,
+> chunk 8192 без изменений). Лист rev.4 (env-параметризация + soak 30×10 с пост-DONE +
+> stash .failed + VRAM-гейт PRE), ревью 2/2 GO, коммит `9f69f4d`. DONE+SOAK_OK,
+> пул **2 746 496**, GPU avail 5.56 GiB/карта, host MA **12 GiB** steady (hc30 ≈
+> 2×30 GiB пулы, swap 0). Стенд PASS: short_bench **414.6**, 169K cold 12.39 с,
+> retract/oom-kill/NRestarts 0. Наблюдать: TTFT p95 (+6…15% вторую волну), host-tier
+> hicache 0 hits (запас, не ускоритель). Откат волны: PRE `…bak-hc30-20261026-122400`
+> (0.92/24) листом или cp+restart.
 
 ```
 --tp 2 --disable-custom-all-reduce --dtype bfloat16 --quantization modelopt_fp4
