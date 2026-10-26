@@ -170,6 +170,17 @@ systemd sglang.service
 > retract/oom-kill/NRestarts 0. Наблюдать: TTFT p95 (+6…15% вторую волну), host-tier
 > hicache 0 hits (запас, не ускоритель). Откат волны: PRE `…bak-hc30-20261026-122400`
 > (0.92/24) листом или cp+restart.
+>
+> **26.10 15:24 волна 3 — образ v3.1.2** (digest `013a685d…`, релизный): `active.cfg` →
+> `serve-penny-312.sh` (копия 311w4, дельта — шапка/лог-тег/image-строка; свитч листом
+> `op_312_switch.sh` rev.2, ревью 2/2 GO, коммит `e4931eb`). Профиль машиночитаемо
+> инвариантен (`3347ef31` — только коммент-фикс лжи про w4-моунт; политика ширины =
+> сток `adaptive-next.json` ИЗ ОБРАЗА, `tp2-adaptive-w4.json` не монтируется).
+> DONE+SOAK_OK 540 с: пул 2 746 496 (1:1), батарея 20/20, degen 1/8 (=база),
+> short_bench **415.4**, adaptive-переключения живы (5×3→7, 5×7→3), надзор нули.
+> Новый knob апстрима: `PENNY_MTP_POLICY=tiered|adaptive|fixed-w4` (дефолт tiered =
+> наше поведение). Откат волны: `…bak-312-20261026-152349` + рестарт; snapshot-тег
+> `rollback:keep-pre312-20261026-152349`.
 
 ```
 --tp 2 --disable-custom-all-reduce --dtype bfloat16 --quantization modelopt_fp4
