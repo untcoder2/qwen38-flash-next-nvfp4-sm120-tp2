@@ -1,6 +1,5 @@
 #!/bin/bash
 # Pennyroyal v3.1.1 + FIXED-W4 политика (A/B против serve-penny-311.sh): поверх
-# сток-адаптивной примонтирован ops-файл tp2-adaptive-w4.json (sha ce468a5c…),
 # профиль tmp/p311/tp2-serve-w4.sh (гейт ce468a5c, launch steps 3/draft 4).
 # Копия боевого serve-penny-311.sh с дельтами: моунт политики + профиль + лог-тег.
 # tp2-ple-backend.sh (стоковый ple-backend.sh в 3.1 default=ram — оверрай больше
@@ -26,12 +25,11 @@ trap 'docker rm -f "$NAME" >/dev/null 2>&1' EXIT INT TERM
 exec docker run --rm --name "$NAME" \
   --device /dev/nvidia0 --device /dev/nvidia1 --device /dev/nvidiactl \
   --device /dev/nvidia-uvm --device /dev/nvidia-uvm-tools \
-  -v $D/libcuda.so.595.84:/nvdrv/libcuda.so.1:ro \
-  -v $D/libnvidia-ml.so.595.84:/nvdrv/libnvidia-ml.so.1:ro \
-  -v $D/libnvidia-nvvm.so.595.84:/nvdrv/libnvidia-nvvm.so.4:ro \
-  -v $D/libnvidia-ptxjitcompiler.so.595.84:/nvdrv/libnvidia-ptxjitcompiler.so.1:ro \
+  -v $D/libcuda.so.1:/nvdrv/libcuda.so.1:ro \
+  -v $D/libnvidia-ml.so.1:/nvdrv/libnvidia-ml.so.1:ro \
+  -v $D/libnvidia-nvvm.so.4:/nvdrv/libnvidia-nvvm.so.4:ro \
+  -v $D/libnvidia-ptxjitcompiler.so.1:/nvdrv/libnvidia-ptxjitcompiler.so.1:ro \
   -v /home/molochko/penny/tp2-serve-flash-next.sh:/opt/pennyroyal/configs/pennyroyal/serve-flash-next.sh:ro \
-  -v /home/molochko/penny/tp2-adaptive-w4.json:/opt/pennyroyal/configs/pennyroyal/adaptive-next.json:ro \
   -v /home/molochko/penny/tp2-chat-template.sh:/opt/pennyroyal/configs/pennyroyal/chat-template.sh:ro \
   -e LD_LIBRARY_PATH=/nvdrv -e CUDA_VISIBLE_DEVICES=0,1 \
   -e SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN=1 \

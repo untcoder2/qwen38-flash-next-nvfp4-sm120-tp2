@@ -47,11 +47,11 @@ fi
 export FLASHINFER_GDN_FP16_ACCUM_MMA="${FLASHINFER_GDN_FP16_ACCUM_MMA:-1}"
 GDN_FP16_ACCUM_MMA=off
 if [[ "$FLASHINFER_GDN_FP16_ACCUM_MMA" == 1 ]]; then GDN_FP16_ACCUM_MMA=on; fi
-# Политика ширины MTP v3.1: FIXED W4 (steps 3) на всех тирах — ops-файл
-# tp2-adaptive-w4.json (sha ce468a5c…) примонтирован поверх сток-адаптивной:
-# один кандидат на тир ⇒ никакой EMA/холдов/переключений; launch обязан быть
-# steps 3 / draft 4 (v3.1 проверяет num-steps ∈ union кандидатов).
-# launch steps 3 / draft 4 (v3.1 проверяет num-steps ∈ union кандидатов).
+# Политика ширины MTP (v3.1.2, A/B доказано): сток adaptive-next.json из образа —
+# tp2-adaptive-w4.json НЕ монтируется, поверх стока ничего не кладут;
+# кандидаты — сток-тиры (W8/W4), runtime переключает ширину adaptive; launch 7/8
+# задаётся флагами ниже (v3.1 проверяет num-steps ∈ union кандидатов).
+# (сток 3.1.1+: C1=W8/C≥2=W4, фикс. ширина по конкурентности — исторично.)
 # (сток 3.1.1: C1=W8/C≥2=W4, фикс. ширина по конкурентности)
 ADAPTIVE_CONFIG="$SCRIPT_DIR/adaptive-next.json"
 [[ -f "$ADAPTIVE_CONFIG" ]] || { echo "Adaptive MTP policy missing: $ADAPTIVE_CONFIG" >&2; exit 1; }
