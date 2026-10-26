@@ -91,6 +91,34 @@ The first run (336.5) is post-warmup straggler; the four after it sit 403–467.
 Reference rows for the same box with PLE in VRAM remain v2.5-era (332.2) — see
 the attribution caveat in [PLE-RAM.md](PLE-RAM.md): engine version changed too.
 
+## 2026-10-26: PLE back to VRAM on v3.1.1; mf 0.93, chunk 8192, HiCache 30
+
+Motivation: the RAM era (14.10, [PLE-RAM.md](PLE-RAM.md)) doubled the KV pool at
+the cost of ~48 GiB pinned host memory. The return trades pool size for VRAM-side
+embedding lookup and host-RAM headroom under a single heavy session — a deliberate
+owner call, re-measured end to end.
+
+- Final flags: `--no-ple-offload-embedding --mem-fraction-static 0.93
+  --chunked-prefill-size 8192 --hicache-size 30` (TP=2, 786,432 ctx / YaRN×3,
+  mrr 16, mamba 128 unchanged). KV pool **2,746,496** tokens (RAM era: 5.88–6.42M);
+  measured +0.01 mf ≈ −0.85 GiB free GPU per card; at 0.93 boot reports
+  `available_gpu_mem=5.56 GB`.
+- List-style bench (greedy, OSL 512): median **414.6** (n=5, 376.0–435.1) against
+  the 405.6 RAM-era base and 412.5 QAD-era; chat low-effort 559.8 (−3% vs 578).
+- Golden set (temp 1.0): short client-p50 **184.1 t/s** — parity with the warmed
+  RAM-profile series (183–190). Long p50 289.3; enumeration form 526.2,
+  accept p95 6.99.
+- Refill: 52.6K-prefix cold→warm **3.6 s → 0.2 s**; 169,608-token cold prefill
+  **12.39 s** (≈13.7K tok/s), warm retry 0.39 s (100% radix). HiCache host tier
+  allocates 3,358,336 tokens / 22.35 GB KV + 4.86 GB Mamba + 2.79 GB QSA **per
+  rank** — and served **0** tokens across both observation waves: at our working
+  depths the device cache absorbs everything, so the host tier is eviction
+  insurance, not a speedup. Do not buy it for latency.
+- TTFT short p50 unchanged (0.081 s); **p95 widened +6…15% two waves running**
+  (0.086 → 0.095 → 0.1005) — 8K-chunk tail, still open.
+- Oversight: 0 retracts and 0 kernel oom-kills through boot, 30×10 s post-DONE
+  soak, and the full bench; steady host `MemAvailable` 12 GiB at hc30, swap 0.
+
 ## Mistakes we made, so you do not repeat them
 
 **Wall-clock over HTTP is not throughput.** `curl` timing of a 1000-token

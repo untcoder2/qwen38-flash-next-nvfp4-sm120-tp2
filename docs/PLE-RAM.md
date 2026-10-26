@@ -98,3 +98,32 @@ concurrency at a fraction of what the new KV pool can actually serve.
 Restore the two backup files, restart through the supervisor, gate on health.
 One command, no data change — placement is a launch-time decision, the
 checkpoint on disk is identical.
+
+## The return (2026-10-26): the mount table is the source of truth
+
+Trying to flip the flag back on v3.1.1 failed **silently** at first: since the
+23.10 upgrade the container bind-mounts only the launch recipe and the chat
+template — `ple-backend.sh` is *not* mounted anymore, so the image's stock file
+(default `ram`, i.e. `--ple-offload-embedding`) wins regardless of what the host
+copy says. The half-applied change died exactly as this doc warned it could:
+`Not enough host memory. Requesting 19.71 GB` — the hicache raise arrived, the
+PLE flip did not. Check `docker inspect --format '{{json .Mounts}}'` before
+editing any config you assume "host copy == container copy".
+
+Working lever on v3.1.1 — override in the mounted recipe, immediately *after*
+the source (anything set before it is overwritten):
+
+```bash
+if [[ "${PENNY_PLE_BACKEND:-ram}" == ram ]]; then
+  PLE_ARGS=(--no-ple-offload-embedding)   # PLE in VRAM
+  PLE_OFFLOAD_EMBEDDING=false             # keep the NIXL cache-identity field honest
+fi
+```
+
+The service restart recreates the container (`docker rm` + `run`), so the
+single-file bind re-resolves and in-place host edits do land — but verify the
+live `/proc/<pid>/cmdline` element-wise, not only health: that night health
+would have returned green on the rolled-back profile. Measured after the return
+(mf 0.93, chunk 8192, HiCache 30): list-style bench 414.6, KV pool 2,746,496,
+host freed of the ~48 GiB pin, 0 retracts / 0 OOM through soak and bench — see
+[MEASUREMENTS.md](MEASUREMENTS.md).
