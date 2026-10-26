@@ -11,7 +11,7 @@ set -euo pipefail
 
 CMD="${1:?usage: wg-manage.sh retire-wg0|add|show|selftest}"; shift || true
 ADDDIR=/home/molochko/agent-tools
-PORT="${PORT:-51820}"
+PORT="${PORT:-443}"
 
 case "$CMD" in
   retire-wg0)

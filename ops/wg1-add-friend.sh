@@ -21,7 +21,7 @@ set -euo pipefail
 NAME="${1:?usage: $0 <name> [friend_pubkey]}"
 PUB="${2:-}"
 
-ENDPOINT="${ENDPOINT:-94.102.125.42}"
+ENDPOINT="${ENDPOINT:-188.255.118.241}"
 PORT="${PORT:-443}"
 IFACE="${IFACE:-wg1}"
 SUBNET_BASE="${SUBNET_BASE:-10.9.0}"
@@ -29,6 +29,11 @@ INFER_IP="${INFER_IP:-192.168.2.127}"
 OUT_DIR="${OUT_DIR:-/home/molochko/agent-tools}"
 CONF_DIR="${CONF_DIR:-/etc/wireguard}"
 DO_ROOT_STEPS="${DO_ROOT_STEPS:-1}"
+
+# ENDPOINT/PORT интерполируются в клиентский профиль — не пускать переносы строк
+# (инъекция произвольных ключей wg-quick, напр. AllowedIPs=0.0.0.0/0)
+[[ "$ENDPOINT" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "ENDPOINT: только host/IP без пробелов" >&2; exit 2; }
+[[ "$PORT" =~ ^[0-9]{1,5}$ ]] || { echo "PORT: цифры 1-5" >&2; exit 2; }
 
 [[ "$NAME" =~ ^[A-Za-z0-9_-]{1,15}$ ]] || { echo "имя: только латиница/цифры/-_ (1-15)" >&2; exit 2; }
 [[ -d "$OUT_DIR" ]] || mkdir -p "$OUT_DIR"
