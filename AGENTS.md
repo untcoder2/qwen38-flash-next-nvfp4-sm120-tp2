@@ -14,6 +14,15 @@
   (`pentest-xiaomievparts/`), долгий curl/нагрузочные прогоны, компиляция, всё, что
   ест GPU/CPU или лезет в сеть целевой подсетью. Не запускать эти тулзы на Windows.
 
+## Продюсерский кодекс (включён 27.10)
+
+- Диспатч любой реализующей роли (coder, sec-implementer, ops-coder) включает в промпт
+  путь `.agents/skills/_shared/coding-discipline.md` и требование строки `discipline:`
+  в handoff (самоотчёт по применимым D:* ID).
+- Пара code-review/security-review судит нарушения по ID кодекса: `D:PREMISE` без
+  стоп-крана = FAIL, прочие `D:*` = FIX-FIRST. Арбитр даёт NO-GO, если в вердиктах
+  пары нет ID/цитат или самоотчёт расходится с фактом.
+
 Обёртки (ключ `~/.ssh/molochko_deploy`, BatchMode, exit-код пробрасывается):
 
 ```bash
