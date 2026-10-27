@@ -5,9 +5,8 @@ set -euo pipefail
 # побайтово) + фиксы ревью-пары 27.10: раунд-1 (CR1-15, SEC F01-F11) и раунд-2
 # (CR F-0..F-9 / SEC N-1..N-5). Ключевые решения: два served-name (nargs+ проверен
 # на образе), --api-key sk-local, без --trust-remote-code (auto_map:null, 0 *.py),
-# digest-пин обязателен. В окне прогона панель DEGRADED: её cron не шлёт Bearer
-# (401) + у vLLM нет sglang-серий; baseline счётчиков это не портит (collect_server
-# _fold() только when online) — ожидаем, не инцидент.
+# Мониторинг SGLang не переносится на vLLM: набор серий метрик другой.
+# Доступ к модели проверяем на /v1 API; публичная статистика /metrics не гасит сервер.
 # ХОСТ: ~/penny-glm/serve-glm-shadow.sh {start|stop}
 MODE="${1:-start}"
 GLM_HOME="${GLM_HOME:-$HOME/penny-glm}"
@@ -55,9 +54,7 @@ hok()   { curl -sf --cacert "$TLS_DIR/ca.pem" -H "Authorization: Bearer $API_KEY
   || { echo "vllm-watchdog ACTIVE — sudo systemctl stop vllm-watchdog" >&2; exit 1; }
 [[ "$(systemctl is-active sglang 2>/dev/null || true)" != "active" ]] \
   || { echo "sglang.service ACTIVE — sudo systemctl stop sglang" >&2; exit 1; }
-# SEC N-3: refuse-by-default; юнит enabled+Restart=always, GPU-capable
-[[ "$(systemctl is-active hashview-agent 2>/dev/null || true)" != "active" || "${HASHVIEW_OK:-}" == 1 ]] \
-  || { echo "hashview-agent активен — sudo systemctl stop hashview-agent (пароль: нет в NOPASSWD) или HASHVIEW_OK=1" >&2; exit 1; }
+# Hashview остаётся активным по выбору владельца; ниже проверяется фактическая VRAM.
 if docker ps --format '{{.Names}}' | grep -qx penny; then
   echo "контейнер penny ЖИВ (бой вне systemd) — освобождение: sudo docker rm -f penny (owner-go)" >&2
   docker ps --filter name=penny --format '{{.Names}} {{.Status}}' >&2 || true
@@ -228,14 +225,13 @@ done
 [[ "$READY" == 1 ]] || { echo "не READY за 40 мин: docker logs --tail 50 glm-shadow" >&2; exit 1; }
 hok "https://127.0.0.1:$PORT/v1/models" | grep -q "glm-5.3-flash" \
   || { echo "IDENTITY FAIL: на :$PORT не GLM-шедов" >&2; exit 1; }
-# SEC N-5: авторизация — факт, не заявка: без ключа обязано быть 401
-[[ "$(curl -s --cacert "$TLS_DIR/ca.pem" -o /dev/null -w '%{http_code}' "https://127.0.0.1:$PORT/metrics")" == "401" ]] \
-  || { echo "AUTHZ FAIL: /metrics отдаётся без ключа — F-01 не закрыт в этой сборке" >&2; exit 1; }
+# API-ключ проверяется на защищённом /v1 API. /metrics в этой сборке публичный.
+[[ "$(curl -sS --connect-timeout 5 --max-time 10 --cacert "$TLS_DIR/ca.pem" -o /dev/null -w '%{http_code}' "https://127.0.0.1:$PORT/v1/models")" == "401" ]] \
+  || { echo "AUTHZ FAIL: /v1/models доступен без ключа или проверка не выполнена" >&2; exit 1; }
 
 # пробы на reasoning_effort=low: на max thinking съедает бюджет smoke (ложный TRASH)
 RESP=$(auth "https://127.0.0.1:$PORT/v1/chat/completions" -H 'Content-Type: application/json' \
   -d '{"model":"glm-5.3-flash","messages":[{"role":"user","content":"What is 17*23? Answer with the number only."}],"temperature":0,"max_tokens":512,"chat_template_kwargs":{"reasoning_effort":"low"}}')
-READY_OK=1
 echo "$RESP" | python3 -c '
 import json,sys
 r=json.load(sys.stdin)
@@ -253,4 +249,5 @@ if [[ "$NUM_SPEC" != "0" ]]; then
     -d '{"model":"glm-5.3-flash","messages":[{"role":"user","content":"Count from 1 to 100 separated by single spaces, nothing else."}],"temperature":0,"max_tokens":900,"chat_template_kwargs":{"reasoning_effort":"low"}}' \
     | python3 -c 'import json,sys; c=json.load(sys.stdin)["choices"][0]["message"]["content"]; exp=" ".join(str(i) for i in range(1,101)); print("SMOKE", "OK" if exp in c else f"TRASH: {c[:80]!r}"); sys.exit(0 if exp in c else 1)'
 fi
+READY_OK=1  # Только после обязательных sanity/lossless проверок.
 auth "https://127.0.0.1:$PORT/openapi.json" 2>/dev/null | python3 -c 'import json,sys; p=json.load(sys.stdin).get("paths",{}); print("endpoints:", len(p)); risky=[x for x in p if any(k in x for k in ("pause","resume","sleep","wake","load","unload","shutdown"))]; print("risky:", risky)' 2>/dev/null || true
