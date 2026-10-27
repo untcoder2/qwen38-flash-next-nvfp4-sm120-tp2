@@ -6,7 +6,11 @@ set -euo pipefail
 # (CR F-0..F-9 / SEC N-1..N-5). Ключевые решения: два served-name (nargs+ проверен
 # на образе), --api-key sk-local, без --trust-remote-code (auto_map:null, 0 *.py),
 # Мониторинг SGLang не переносится на vLLM: набор серий метрик другой.
-# Доступ к модели проверяем на /v1 API; публичная статистика /metrics не гасит сервер.
+# AUTHZ этой сборки: api-key гвардит только префиксы /v1 /v2 /inference /cohere
+# (GUARDED_PREFIX authenticate.py). Публичны: /metrics, /tokenize, /detokenize и
+# POST /invocations — SageMaker-алиас полного инференса (ретро-ревью 27.10, F1:
+# анонимная генерация воспроизведена). Принято владельцем для LAN-тени; боевой
+# рельс обязан нести строгий --middleware (docs/incidents/2026-10-27-glm-startup-gates.md).
 # ХОСТ: ~/penny-glm/serve-glm-shadow.sh {start|stop}
 MODE="${1:-start}"
 GLM_HOME="${GLM_HOME:-$HOME/penny-glm}"
@@ -26,6 +30,10 @@ case "$MODE" in
   stop)
     docker stop -t 30 glm-shadow >/dev/null 2>&1 || true   # grace перед SIGKILL (CR F-9)
     docker rm -f glm-shadow >/dev/null 2>&1 || true
+    if docker ps -q --filter name=glm-shadow 2>/dev/null | grep -q .; then
+      echo "glm-shadow ПЕРЕЖИЛ rm — .maintenance ОСТАВЛЕН (watchdog спит, бой не поднимется поверх зомби); разбирайся вручную" >&2   # ретро F2
+      exit 1
+    fi
     [[ -e "$MAINT" ]] && rm -f "$MAINT" && echo "(.maintenance снят)"
     echo "glm-shadow снят. Если watchdog не вернул penny за ~60с:"
     echo "  sudo systemctl reset-failed sglang && sudo systemctl start sglang"   # SEC N-1b: ровно reset-failed (NOPASSWD)
@@ -47,7 +55,7 @@ if [[ "$NUM_SPEC" != "0" ]]; then
   SPEC_ARGS=(--speculative-config "{\"method\":\"mtp\",\"draft_sample_method\":\"probabilistic\",\"rejection_sample_method\":\"standard\",\"moe_backend\":\"b12x\",\"attention_backend\":\"B12X\",\"num_speculative_tokens\":$NUM_SPEC}")
 fi
 auth()  { curl -s --cacert "$TLS_DIR/ca.pem" -H "Authorization: Bearer $API_KEY" "$@"; }
-hok()   { curl -sf --cacert "$TLS_DIR/ca.pem" -H "Authorization: Bearer $API_KEY" "$@"; }
+hok()   { curl -sf --connect-timeout 5 --max-time 10 --cacert "$TLS_DIR/ca.pem" -H "Authorization: Bearer $API_KEY" "$@"; }   # ретро F3: одноходовки с таймаутом
 
 # --- предполётные гейды (порядок = семантика, до первого разрушительного действия) ---
 [[ "$(systemctl is-active vllm-watchdog 2>/dev/null || true)" != "active" ]] \
@@ -92,6 +100,10 @@ cleanup() {
   if [[ "${READY_OK:-0}" != 1 ]]; then
     docker stop -t 30 glm-shadow >/dev/null 2>&1 || true
     docker rm -f glm-shadow >/dev/null 2>&1 || true
+    if docker ps -q --filter name=glm-shadow 2>/dev/null | grep -q .; then
+      echo "glm-shadow ПЕРЕЖИЛ rm — .maintenance ОСТАВЛЕН (watchdog спит, бой не поднимется поверх зомби); разбирайся вручную" >&2   # ретро F2
+      return 1
+    fi
     if [[ "${MAINT_OWNER:-}" == "glm-shadow" ]]; then rm -f "$MAINT"; echo "glm-shadow убран, наш .maintenance снят" >&2; else echo "glm-shadow убран, .maintenance ЧУЖОЙ — оставлен" >&2; fi   # SEC N-4b
   fi
   return 0
